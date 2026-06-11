@@ -326,11 +326,6 @@ pub struct Compost<'info> {
     pub pool: Box<Account<'info, NutrientPool>>,
     #[account(mut)]
     pub plot: Box<Account<'info, Plot>>,
-    /// Composter's own plot, receiving the bounty as soil. May equal `plot`.
-    #[account(mut, has_one = owner @ GardenError::Unauthorized, constraint = bounty_plot.owner == composter.key() @ GardenError::Unauthorized)]
-    pub bounty_plot: Box<Account<'info, Plot>>,
-    /// CHECK: owner of bounty_plot, checked by has_one.
-    pub owner: UncheckedAccount<'info>,
     #[account(
         mut,
         constraint = plant.plot == plot.key() @ GardenError::WrongPlot,
@@ -364,11 +359,10 @@ pub fn compost(ctx: Context<Compost>) -> Result<()> {
     plot.soil_nutrients = s;
     require!(h == 0, GardenError::PlantAlive);
 
-    let (to_pool, to_soil, bounty) = m::compost_split(b, c.compost_pool_bps, c.compost_bounty_bps);
+    let (to_pool, to_soil, _bounty) = m::compost_split(b, c.compost_pool_bps, 0);
     let pool = &mut ctx.accounts.pool;
     pool.balance += to_pool;
     plot.soil_nutrients += to_soil;
-    ctx.accounts.bounty_plot.soil_nutrients += bounty;
 
     // Share accounting: dead plot's owner earns pool shares == to_pool.
     pool.acc_reward_per_share = pool.acc_reward_per_share; // rewards accrue on draw

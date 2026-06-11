@@ -103,7 +103,7 @@ describe("entropy-garden lifecycle", () => {
   it("rejects compost of a living plant", async () => {
     try {
       await program.methods.compost()
-        .accounts({ composter: me, plot, bountyPlot: plot, owner: me,
+        .accounts({ composter: me, plot, 
           plant, feed, region }).rpc();
       assert.fail("should have thrown");
     } catch (e: any) {
