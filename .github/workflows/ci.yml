@@ -1,0 +1,28 @@
+name: ci
+on:
+  push: { branches: [main] }
+  pull_request:
+
+jobs:
+  unit-math:
+    name: decay math unit tests (host target, no SBF needed)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test -p entropy-garden --lib
+        # Runs the pure decay-math suite. Consensus-critical: must pass.
+
+  anchor-build-test:
+    name: anchor build + integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: metadaoproject/setup-anchor@v2
+        with:
+          anchor-version: "0.31.1"
+          solana-cli-version: "stable"
+          node-version: "20"
+      - run: yarn install --frozen-lockfile || yarn install
+      - run: anchor build
+      - run: anchor test

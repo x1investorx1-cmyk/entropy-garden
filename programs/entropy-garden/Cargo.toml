@@ -1,0 +1,20 @@
+[package]
+name = "entropy-garden"
+version = "0.1.0"
+description = "Entropy Garden: a decay-driven, chain-reactive garden world on X1"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "entropy_garden"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang = "0.31.1"

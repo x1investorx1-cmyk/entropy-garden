@@ -1,0 +1,56 @@
+use anchor_lang::prelude::*;
+
+pub mod error;
+pub mod instructions;
+pub mod math;
+pub mod state;
+
+use instructions::*;
+use state::WeatherChannel;
+
+declare_id!("8gTX3w2mAkKhGip9Mmvhb3gkcETugkfLEvmT4BNTh1By");
+
+#[program]
+pub mod entropy_garden {
+    use super::*;
+
+    pub fn initialize_garden(ctx: Context<InitializeGarden>, genesis_nutrients: u64) -> Result<()> {
+        instructions::initialize_garden(ctx, genesis_nutrients)
+    }
+
+    pub fn create_region(ctx: Context<CreateRegion>, region_id: u16, channel: WeatherChannel) -> Result<()> {
+        instructions::create_region(ctx, region_id, channel)
+    }
+
+    pub fn update_weather(ctx: Context<UpdateWeather>, proposed_bps: u16, sampled_slot: u64) -> Result<()> {
+        instructions::update_weather(ctx, proposed_bps, sampled_slot)
+    }
+
+    pub fn claim_plot(ctx: Context<ClaimPlot>) -> Result<()> {
+        instructions::claim_plot(ctx)
+    }
+
+    pub fn plant_seed(ctx: Context<PlantSeed>, slot_index: u8, species: u16) -> Result<()> {
+        instructions::plant_seed(ctx, slot_index, species)
+    }
+
+    pub fn tend(ctx: Context<Tend>) -> Result<()> {
+        instructions::tend(ctx)
+    }
+
+    pub fn compost(ctx: Context<Compost>) -> Result<()> {
+        instructions::compost(ctx)
+    }
+
+    pub fn draw_nutrients(ctx: Context<DrawNutrients>) -> Result<()> {
+        instructions::draw_nutrients(ctx)
+    }
+
+    pub fn set_paused(ctx: Context<AdminOnly>, paused: bool) -> Result<()> {
+        instructions::set_paused(ctx, paused)
+    }
+
+    pub fn set_max_plots(ctx: Context<AdminOnly>, max_plots: u32) -> Result<()> {
+        instructions::set_max_plots(ctx, max_plots)
+    }
+}
