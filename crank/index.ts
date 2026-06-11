@@ -12,7 +12,7 @@ import * as anchor from "@coral-xyz/anchor";
 import { PublicKey, SYSVAR_SLOT_HASHES_PUBKEY, Connection } from "@solana/web3.js";
 
 const INTERVAL_MS = 15_000;          // ~one sample / 25+ slots on X1
-const PROGRAM_ID = new PublicKey("Entg111111111111111111111111111111111111111");
+const PROGRAM_ID = new PublicKey("8gTX3w2mAkKhGip9Mmvhb3gkcETugkfLEvmT4BNTh1By");
 
 // region_id -> channel sampler
 const CHANNELS: Record<number, (c: Connection) => Promise<number>> = {
