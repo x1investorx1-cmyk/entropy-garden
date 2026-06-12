@@ -136,13 +136,16 @@ async function connectStandard(w){
   }};
 }
 async function connectBackpack(){
-  const bp = window.backpack ?? window.xnft?.solana;
-  await bp.connect();
-  const pk = new PublicKey(bp.publicKey.toString());
+  const bp = window.backpack?.solana ?? window.backpack ?? window.xnft?.solana;
+  if(!bp) throw new Error("Backpack provider not found — is the extension enabled?");
+  const resp = await bp.connect();
+  const raw = resp?.publicKey ?? bp.publicKey;
+  if(!raw) throw new Error("Backpack connected but returned no public key");
+  const pk = new PublicKey(raw.toString());
   return { name:"Backpack", publicKey:pk, signAndSend: async tx => {
     tx.feePayer = pk; tx.recentBlockhash = (await conn.getLatestBlockhash()).blockhash;
-    const {signature} = await bp.signAndSendTransaction(tx);
-    return signature;
+    const res = await bp.signAndSendTransaction(tx);
+    return res?.signature ?? res;
   }};
 }
 function base58(bytes){ // minimal b58 for signature display
@@ -168,6 +171,7 @@ $("disconnectBtn").onclick = () => { active=null; $("who").textContent="no walle
   $("disconnectBtn").style.display="none"; $("claim0").disabled=$("claim1").disabled=true; $("plots").innerHTML=""; };
 function onConnected(){
   const a = active.publicKey.toBase58();
+  log("connected: "+active.name+" · "+a.slice(0,4)+"…"+a.slice(-4),"ok");
   $("who").textContent = active.name+" · "+a.slice(0,4)+"…"+a.slice(-4);
   $("disconnectBtn").style.display="";
   $("claim0").disabled = $("claim1").disabled = false;

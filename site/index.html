@@ -26,6 +26,12 @@ body{
 }
 a{color:var(--leaf); text-decoration:none; border-bottom:1px solid var(--hairline)}
 a:hover{border-bottom-color:var(--leaf)}
+
+.enter{display:inline-block; margin:26px 0 0; padding:16px 34px; font-family:var(--mono);
+  font-size:15px; letter-spacing:.06em; color:var(--loam); background:var(--leaf);
+  border:1px solid var(--leaf); text-transform:lowercase;}
+.enter:hover{background:transparent; color:var(--leaf)}
+.enter small{display:block; font-size:10.5px; letter-spacing:.2em; opacity:.75; margin-top:2px; text-transform:uppercase}
 .eyebrow{color:var(--ash); font-size:11px; letter-spacing:.28em; text-transform:uppercase}
 h1{
   font-family:var(--disp); font-weight:340; font-size:clamp(44px,9vw,82px);
@@ -101,6 +107,7 @@ footer .pid{word-break:break-all; color:var(--bone)}
 <p class="eyebrow">A living experiment on X1 · est. genesis, June 2026</p>
 <h1>entropy<br><em>garden</em></h1>
 <p class="thesis">A garden whose weather is the blockchain itself. Every storm on this page is <b>real traffic on X1, right now</b> — fee pressure becomes drought, transaction flow becomes rain. Plants will live and die by it. Nothing here is simulated.</p>
+<a class="enter" href="/garden.html" style="border-bottom:1px solid var(--leaf)">enter the garden →<small>claim a plot · plant · survive the weather</small></a>
 
 <div class="liveline">
   <span><span class="dot"></span><span id="status">contacting the garden…</span></span>
