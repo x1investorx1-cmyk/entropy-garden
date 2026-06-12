@@ -28,7 +28,7 @@ async function sampleFeeMarket(conn: Connection): Promise<number> {
   if (!fees.length) return 5000;
   const avg = fees.reduce((a, f) => a + f.prioritizationFee, 0) / fees.length;
   // 0 lamports -> 0 bps; 10k+ microlamports -> ~10000 bps. Tune on real data.
-  return Math.min(10_000, Math.round(2_500 * Math.log10(1 + avg)));
+  return Math.min(10_000, 2_000 + Math.round(2_500 * Math.log10(1 + avg)));
 }
 
 /** Network TPS from recent performance samples -> bps against a ceiling. */
@@ -36,7 +36,7 @@ async function sampleTps(conn: Connection): Promise<number> {
   const perf = await conn.getRecentPerformanceSamples(4);
   if (!perf.length) return 5000;
   const tps = perf.reduce((a, s) => a + s.numTransactions / s.samplePeriodSecs, 0) / perf.length;
-  const CEILING_TPS = 50_000; // X1 is high-throughput; calibrate live
+  const CEILING_TPS = 4_000; // calibrated from 24h mainnet soak
   return Math.min(10_000, Math.round((tps / CEILING_TPS) * 10_000));
 }
 
