@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your Garden — Entropy Garden</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,300..600,50&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@solana/web3.js@1.95.8/lib/index.iife.min.js"></script>
+<style>
+:root{--loam:#0B100C;--moss:#131A13;--hairline:#243224;--bone:#E5EADC;--ash:#7C8772;--leaf:#8FBC79;--ember:#C97B4A;
+--mono:'IBM Plex Mono',ui-monospace,monospace;--disp:'Fraunces',Georgia,serif;}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--loam)}
+body{color:var(--bone);font-family:var(--mono);font-size:15px;line-height:1.6;max-width:880px;margin:0 auto;padding:44px 24px 96px;
+background:radial-gradient(1200px 500px at 70% -10%,rgba(143,188,121,.05),transparent 60%),var(--loam)}
+a{color:var(--leaf);text-decoration:none;border-bottom:1px solid var(--hairline)}
+.eyebrow{color:var(--ash);font-size:11px;letter-spacing:.28em;text-transform:uppercase}
+h1{font-family:var(--disp);font-weight:340;font-size:clamp(34px,6vw,52px);line-height:1;margin:10px 0 8px}
+h1 em{font-style:italic;color:var(--leaf);font-weight:300}
+.bar{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;margin:26px 0 36px;
+padding:14px 0;border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline);font-size:12.5px;color:var(--ash)}
+button{font-family:var(--mono);font-size:13px;background:transparent;color:var(--leaf);border:1px solid var(--leaf);
+padding:9px 18px;cursor:pointer;letter-spacing:.04em}
+button:hover{background:rgba(143,188,121,.1)}
+button:disabled{color:var(--ash);border-color:var(--hairline);cursor:not-allowed;background:transparent}
+button.quiet{border-color:var(--hairline);color:var(--ash);padding:6px 12px;font-size:12px}
+.weatherline{display:flex;gap:26px;flex-wrap:wrap;font-size:12.5px;color:var(--ash);margin-bottom:36px}
+.weatherline b{color:var(--bone);font-weight:500}
+.panel{background:var(--moss);border:1px solid var(--hairline);padding:24px;margin-bottom:18px}
+.panel h2{font-family:var(--disp);font-weight:400;font-size:22px;margin-bottom:6px}
+.panel .sub{color:var(--ash);font-size:12.5px;margin-bottom:16px}
+.slots{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin-top:14px}
+.slot{border:1px dashed var(--hairline);padding:14px 12px;text-align:center;font-size:12px;color:var(--ash)}
+.slot .glyph{font-size:26px;line-height:1.4;display:block}
+.slot.alive{border-style:solid;color:var(--bone)}
+.slot .hp{display:block;height:4px;background:var(--hairline);margin:8px 0 6px}
+.slot .hp i{display:block;height:100%;background:var(--leaf)}
+.slot .hp i.low{background:var(--ember)}
+.slot button{margin-top:8px;width:100%;padding:6px 4px;font-size:11.5px}
+.log{margin-top:30px;font-size:12.5px;color:var(--ash);border-top:1px solid var(--hairline);padding-top:14px;max-height:200px;overflow:auto}
+.log .ok{color:var(--leaf)} .log .bad{color:var(--ember)}
+.help{color:var(--ash);font-size:12.5px;margin-top:10px}
+dialog{background:var(--moss);color:var(--bone);border:1px solid var(--hairline);padding:26px;max-width:380px;font-family:var(--mono)}
+dialog::backdrop{background:rgba(5,8,5,.8)}
+dialog h3{font-family:var(--disp);font-weight:400;margin-bottom:14px}
+.wopt{display:block;width:100%;text-align:left;margin-bottom:10px}
+</style>
+</head>
+<body>
+<p class="eyebrow"><a href="/" style="border:0">← observatory</a></p>
+<h1>your <em>garden</em></h1>
+<p style="color:var(--ash);font-size:13.5px">Claim land. Plant a seed. Keep it alive through real weather. <b style="color:var(--bone)">Make sure your wallet is set to the X1 network</b> (RPC: rpc.mainnet.x1.xyz).</p>
+
+<div class="bar">
+  <span id="who">no wallet connected</span>
+  <span style="display:flex;gap:10px">
+    <button id="connectBtn">connect wallet</button>
+    <button id="disconnectBtn" class="quiet" style="display:none">disconnect</button>
+  </span>
+</div>
+
+<div class="weatherline" id="weatherline">
+  <span>Dry Field: <b id="w0">—</b> bps</span>
+  <span>Rainline: <b id="w1">—</b> bps</span>
+  <span>plots claimed: <b id="claimed">—</b></span>
+  <span>slot: <b id="slot">—</b></span>
+</div>
+
+<div class="panel" id="claimPanel">
+  <h2>Claim a plot</h2>
+  <p class="sub">One transaction. Your plot receives soil from the global pool — first season is capped at 500 plots. Pick the sky you want to live under.</p>
+  <span style="display:flex;gap:12px;flex-wrap:wrap">
+    <button id="claim0" disabled>claim in the Dry Field</button>
+    <button id="claim1" disabled>claim in the Rainline</button>
+  </span>
+  <p class="help">If two gardeners claim in the same instant, one transaction politely fails — just press again.</p>
+</div>
+
+<div id="plots"></div>
+
+<div class="log" id="log"></div>
+
+<dialog id="walletDialog">
+  <h3>Choose a wallet</h3>
+  <div id="walletList"></div>
+  <p class="help">Backpack and any Wallet Standard–compatible wallet (set to X1) will appear here.</p>
+  <button class="quiet" onclick="walletDialog.close()" style="margin-top:8px">cancel</button>
+</dialog>
+
+<script>
+const {Connection, PublicKey, Transaction, TransactionInstruction, SystemProgram, SYSVAR_SLOT_HASHES_PUBKEY} = solanaWeb3;
+const RPC = "https://rpc.mainnet.x1.xyz";
+const conn = new Connection(RPC, "confirmed");
+const PID = new PublicKey("8gTX3w2mAkKhGip9Mmvhb3gkcETugkfLEvmT4BNTh1By");
+const CONFIG = new PublicKey("3uXybAM2mZwWpSmptCUs6xFHQ3UNwzShXgRUGe5XfvJX");
+const POOL   = new PublicKey("9fXEHt9ZUvjb2QhHQ26MqGcUKmZakbMLt5oygrQwgzBb");
+const REGION = ["F5bTy6FQbUxN8S9MciG9vEcatFZqAPWAYobnUEd4vcqc","BSbYnXJ6YoKTjez3toMzioYFR44dUW54sV6kndsv8VFi"].map(s=>new PublicKey(s));
+const FEED   = ["7ciMwptribaYxvAuG1De3xvDc9AKyw3AiRVavE7brcN7","7kz8hxdRA2ejqKk2KxyKh4KTg17htVAybvXC72yiQ2v7"].map(s=>new PublicKey(s));
+const IX = { claim:[125,132,62,56,128,210,150,69], plant:[139,66,41,202,41,145,173,204],
+             tend:[169,80,232,45,188,3,247,112], compost:[150,11,76,97,196,3,122,103] };
+const PLOT_DISC = [83,82,6,254,46,4,206,230];
+const REGION_NAME = ["the Dry Field","the Rainline"];
+const $ = id => document.getElementById(id);
+const log = (msg, cls="") => { const d=document.createElement("div"); d.className=cls; d.textContent="› "+msg; $("log").prepend(d); };
+
+/* ---------- wallets: Wallet Standard + Backpack fallback ---------- */
+const wallets = new Map();
+function registerWallet(w){
+  try{
+    if(!w?.features?.["standard:connect"]) return;
+    const chains = w.chains || [];
+    if(chains.some(c=>String(c).startsWith("solana")) || chains.length===0) wallets.set(w.name, w);
+  }catch(e){}
+}
+window.addEventListener("wallet-standard:register-wallet", ev => ev.detail && registerWallet(ev.detail));
+try{ window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{register:registerWallet}})); }catch(e){}
+
+let active = null; // {name, publicKey, signAndSend(tx)}
+async function connectStandard(w){
+  const res = await w.features["standard:connect"].connect();
+  const acct = res.accounts[0];
+  const pk = new PublicKey(acct.publicKey ?? acct.address);
+  const sast = w.features["solana:signAndSendTransaction"];
+  const st   = w.features["solana:signTransaction"];
+  return { name:w.name, publicKey:pk, signAndSend: async tx => {
+    tx.feePayer = pk; tx.recentBlockhash = (await conn.getLatestBlockhash()).blockhash;
+    if(sast){
+      const ser = tx.serialize({requireAllSignatures:false,verifySignatures:false});
+      const [out] = await sast.signAndSendTransaction({transaction:ser, account:acct, chain:"solana:mainnet"});
+      return typeof out.signature==="string" ? out.signature : solanaWeb3.bs58?.encode?.(out.signature) ?? base58(out.signature);
+    }
+    const [signed] = await st.signTransaction({transaction:tx.serialize({requireAllSignatures:false,verifySignatures:false}), account:acct});
+    return conn.sendRawTransaction(signed.signedTransaction);
+  }};
+}
+async function connectBackpack(){
+  const bp = window.backpack ?? window.xnft?.solana;
+  await bp.connect();
+  const pk = new PublicKey(bp.publicKey.toString());
+  return { name:"Backpack", publicKey:pk, signAndSend: async tx => {
+    tx.feePayer = pk; tx.recentBlockhash = (await conn.getLatestBlockhash()).blockhash;
+    const {signature} = await bp.signAndSendTransaction(tx);
+    return signature;
+  }};
+}
+function base58(bytes){ // minimal b58 for signature display
+  const A="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  let x=BigInt(0); for(const b of bytes) x = (x<<8n)+BigInt(b);
+  let s=""; while(x>0n){ s=A[Number(x%58n)]+s; x/=58n; } return s||"1";
+}
+$("connectBtn").onclick = () => {
+  const list = $("walletList"); list.innerHTML = "";
+  const opts = [];
+  if(window.backpack || window.xnft?.solana) opts.push({label:"Backpack", go:connectBackpack});
+  for(const [name,w] of wallets) if(name!=="Backpack") opts.push({label:name, go:()=>connectStandard(w)});
+  if(!opts.length){ list.innerHTML = "<p class='help'>No wallet detected. Install Backpack (or an X1-compatible wallet), set its RPC to rpc.mainnet.x1.xyz, then reload.</p>"; }
+  for(const o of opts){
+    const b = document.createElement("button"); b.className="wopt"; b.textContent = o.label;
+    b.onclick = async () => { try{ active = await o.go(); onConnected(); walletDialog.close(); }
+      catch(e){ log("connect failed: "+e.message,"bad"); } };
+    list.appendChild(b);
+  }
+  walletDialog.showModal();
+};
+$("disconnectBtn").onclick = () => { active=null; $("who").textContent="no wallet connected";
+  $("disconnectBtn").style.display="none"; $("claim0").disabled=$("claim1").disabled=true; $("plots").innerHTML=""; };
+function onConnected(){
+  const a = active.publicKey.toBase58();
+  $("who").textContent = active.name+" · "+a.slice(0,4)+"…"+a.slice(-4);
+  $("disconnectBtn").style.display="";
+  $("claim0").disabled = $("claim1").disabled = false;
+  refreshMine();
+}
+
+/* ---------- decode (borsh after 8-byte discriminator, LE) ---------- */
+const dv = buf => new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+function decPlot(buf){
+  const d = dv(buf); let o = 8;
+  const owner = new PublicKey(buf.slice(o,o+32)); o+=32;
+  const region = new PublicKey(buf.slice(o,o+32)); o+=32;
+  const plotIndex = d.getUint32(o,true); o+=4;
+  const soil = d.getBigUint64(o,true); o+=8;
+  const plants = [];
+  for(let i=0;i<6;i++){ const tag=d.getUint8(o); o+=1;
+    if(tag){ plants.push(new PublicKey(buf.slice(o,o+32))); o+=32; } else plants.push(null); }
+  return {owner, region, plotIndex, soil, plants};
+}
+function decPlant(buf){
+  const d = dv(buf);
+  return { slotIndex:d.getUint8(40), species:d.getUint16(41,true), optimal:d.getUint16(75,true),
+    lastEval:d.getBigUint64(85,true), health:d.getUint16(93,true),
+    biomass:d.getBigUint64(95,true), stage:d.getUint8(103) };
+}
+
+/* ---------- instructions ---------- */
+function ixClaim(owner, regionIdx, totalPlots){
+  const idx = Buffer.alloc(4); idx.writeUInt32LE(totalPlots);
+  const [plot] = PublicKey.findProgramAddressSync([Buffer.from("plot"), owner.toBuffer(), idx], PID);
+  return [plot, new TransactionInstruction({ programId:PID, data:Buffer.from(IX.claim), keys:[
+    {pubkey:owner, isSigner:true, isWritable:true},
+    {pubkey:CONFIG, isSigner:false, isWritable:true},
+    {pubkey:POOL, isSigner:false, isWritable:true},
+    {pubkey:REGION[regionIdx], isSigner:false, isWritable:true},
+    {pubkey:plot, isSigner:false, isWritable:true},
+    {pubkey:SystemProgram.programId, isSigner:false, isWritable:false},
+  ]})];
+}
+function ixPlant(owner, plot, slotIndex, species=1){
+  const [plant] = PublicKey.findProgramAddressSync([Buffer.from("plant"), plot.toBuffer(), Buffer.from([slotIndex])], PID);
+  const data = Buffer.concat([Buffer.from(IX.plant), Buffer.from([slotIndex]), (()=>{const b=Buffer.alloc(2);b.writeUInt16LE(species);return b})()]);
+  return [plant, new TransactionInstruction({ programId:PID, data, keys:[
+    {pubkey:owner, isSigner:true, isWritable:true},
+    {pubkey:CONFIG, isSigner:false, isWritable:false},
+    {pubkey:plot, isSigner:false, isWritable:true},
+    {pubkey:plant, isSigner:false, isWritable:true},
+    {pubkey:SYSVAR_SLOT_HASHES_PUBKEY, isSigner:false, isWritable:false},
+    {pubkey:SystemProgram.programId, isSigner:false, isWritable:false},
+  ]})];
+}
+function ixTend(owner, plot, plant, regionIdx){
+  return new TransactionInstruction({ programId:PID, data:Buffer.from(IX.tend), keys:[
+    {pubkey:owner, isSigner:true, isWritable:false},
+    {pubkey:CONFIG, isSigner:false, isWritable:false},
+    {pubkey:plot, isSigner:false, isWritable:true},
+    {pubkey:plant, isSigner:false, isWritable:true},
+    {pubkey:FEED[regionIdx], isSigner:false, isWritable:false},
+    {pubkey:REGION[regionIdx], isSigner:false, isWritable:false},
+  ]});
+}
+function ixCompost(composter, plot, plant, regionIdx){
+  return new TransactionInstruction({ programId:PID, data:Buffer.from(IX.compost), keys:[
+    {pubkey:composter, isSigner:true, isWritable:true},
+    {pubkey:CONFIG, isSigner:false, isWritable:false},
+    {pubkey:POOL, isSigner:false, isWritable:true},
+    {pubkey:plot, isSigner:false, isWritable:true},
+    {pubkey:plant, isSigner:false, isWritable:true},
+    {pubkey:FEED[regionIdx], isSigner:false, isWritable:false},
+    {pubkey:REGION[regionIdx], isSigner:false, isWritable:false},
+  ]});
+}
+async function send(ix, label){
+  try{
+    log(label+" — sign in your wallet…");
+    const tx = new Transaction().add(ix);
+    const sig = await active.signAndSend(tx);
+    log(label+" sent: "+String(sig).slice(0,16)+"… confirming…");
+    await conn.confirmTransaction(sig, "confirmed");
+    log(label+" confirmed ✓","ok");
+    setTimeout(()=>{refreshMine(); refreshGlobal();}, 800);
+  }catch(e){ log(label+" failed: "+(e.message||e),"bad"); }
+}
+
+/* ---------- actions ---------- */
+async function claim(regionIdx){
+  const info = await conn.getAccountInfo(CONFIG);
+  const total = new DataView(info.data.buffer,info.data.byteOffset).getUint32(82,true);
+  const [,ix] = ixClaim(active.publicKey, regionIdx, total);
+  await send(ix, "claim plot in "+REGION_NAME[regionIdx]);
+}
+$("claim0").onclick = ()=>claim(0); $("claim1").onclick = ()=>claim(1);
+
+/* ---------- my garden ---------- */
+const STAGE = ["·","𖧧","𖥧","𖥧𖧧","❀","✿"]; // seed → flowering
+async function refreshMine(){
+  if(!active) return;
+  const accts = await conn.getProgramAccounts(PID, { filters:[
+    {memcmp:{offset:0, bytes: base58(Uint8Array.from(PLOT_DISC))}},
+    {memcmp:{offset:8, bytes: active.publicKey.toBase58()}},
+  ]});
+  const box = $("plots"); box.innerHTML = "";
+  if(!accts.length){ box.innerHTML = "<p class='help'>No plots yet — claim your first above. ~0.002 XNT of rent, soil included.</p>"; return; }
+  for(const {pubkey, account} of accts){
+    const plot = decPlot(account.data);
+    const regionIdx = plot.region.equals(REGION[0]) ? 0 : 1;
+    const el = document.createElement("div"); el.className="panel";
+    el.innerHTML = `<h2>Plot #${plot.plotIndex} · ${REGION_NAME[regionIdx]}</h2>
+      <p class="sub">soil: ${plot.soil.toLocaleString()} nutrients · ${pubkey.toBase58().slice(0,8)}…</p>
+      <div class="slots"></div>`;
+    const grid = el.querySelector(".slots");
+    const plantKeys = plot.plants.map((p,i)=>({p,i})).filter(x=>x.p);
+    const infos = plantKeys.length ? await conn.getMultipleAccountsInfo(plantKeys.map(x=>x.p)) : [];
+    const plantData = {}; plantKeys.forEach((x,j)=>{ if(infos[j]) plantData[x.i] = {key:x.p, ...decPlant(infos[j].data)}; });
+    for(let i=0;i<6;i++){
+      const cell = document.createElement("div"); cell.className="slot";
+      const pd = plantData[i];
+      if(pd){
+        cell.classList.add("alive");
+        const hpPct = Math.round(pd.health/10);
+        const dead = pd.health===0;
+        cell.innerHTML = `<span class="glyph">${dead?"☠":STAGE[pd.stage]||"·"}</span>
+          ${dead?"dead":"stage "+pd.stage} · ❤${pd.health}
+          <span class="hp"><i class="${hpPct<30?'low':''}" style="width:${hpPct}%"></i></span>
+          optimal sky: ${pd.optimal} bps`;
+        const b = document.createElement("button");
+        b.textContent = dead ? "compost" : "tend";
+        b.onclick = () => send(dead ? ixCompost(active.publicKey,pubkey,pd.key,regionIdx)
+                                    : ixTend(active.publicKey,pubkey,pd.key,regionIdx),
+                               (dead?"compost":"tend")+" slot "+i);
+        cell.appendChild(b);
+      } else {
+        cell.innerHTML = `<span class="glyph">⊹</span>empty soil`;
+        const b = document.createElement("button"); b.textContent = "plant seed (10 soil)";
+        b.onclick = async () => { const [,ix] = ixPlant(active.publicKey, pubkey, i); await send(ix, "plant seed in slot "+i); };
+        cell.appendChild(b);
+      }
+      grid.appendChild(cell);
+    }
+    box.appendChild(el);
+  }
+}
+
+/* ---------- global ticker ---------- */
+async function refreshGlobal(){
+  try{
+    const [slot, infos] = await Promise.all([conn.getSlot(), conn.getMultipleAccountsInfo([CONFIG, REGION[0], REGION[1]])]);
+    $("slot").textContent = slot.toLocaleString();
+    const cd = new DataView(infos[0].data.buffer, infos[0].data.byteOffset);
+    $("claimed").textContent = cd.getUint32(82,true)+" / "+cd.getUint32(78,true);
+    for(const i of [0,1]){
+      const rd = new DataView(infos[1+i].data.buffer, infos[1+i].data.byteOffset);
+      $("w"+i).textContent = rd.getUint16(11,true).toLocaleString();
+    }
+  }catch(e){}
+}
+refreshGlobal(); setInterval(refreshGlobal, 20000);
+setInterval(()=>{ if(active) refreshMine(); }, 45000);
+</script>
+</body>
+</html>
