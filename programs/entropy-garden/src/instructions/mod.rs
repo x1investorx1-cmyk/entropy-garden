@@ -299,6 +299,9 @@ pub fn tend(ctx: Context<Tend>) -> Result<()> {
     plant.biomass = b;
     plot.soil_nutrients = s;
     plant.last_evaluated_slot = now;
+    let stress_now = m::stress(weather, plant.optimal_bps);
+    plant.cumulative_stress = plant.cumulative_stress
+        .saturating_add((stress_now as u64).saturating_mul(elapsed) / 1000);
 
     if !plant.is_dead() {
         // Care bonus: restore 15% of max health, capped.

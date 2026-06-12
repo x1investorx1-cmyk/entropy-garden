@@ -107,6 +107,7 @@ pub struct Plot {
     pub compost_shares: u128,
     /// Reward debt for share accounting.
     pub reward_debt: u128,
+    pub _reserved: [u8; 64],
     pub bump: u8,
 }
 
@@ -124,6 +125,9 @@ pub struct Plant {
     pub health: u16,
     pub biomass: u64,
     pub growth_stage: u8,
+    /// Lifetime stress-slots endured (v0.2 difficulty multiplier feedstock).
+    pub cumulative_stress: u64,
+    pub _reserved: [u8; 64],
     pub bump: u8,
 }
 
