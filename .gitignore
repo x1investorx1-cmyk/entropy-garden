@@ -7,3 +7,4 @@ dist/
 **/*-keypair.json
 .env
 .DS_Store
+*.log
