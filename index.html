@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entropy Garden — a living experiment on X1</title>
+<meta name="description" content="A garden whose weather is the X1 blockchain itself. Live, on-chain, conserved.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,300..600,50&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --loam:#0B100C; --moss:#131A13; --hairline:#243224;
+  --bone:#E5EADC; --ash:#7C8772; --leaf:#8FBC79; --ember:#C97B4A;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --disp:'Fraunces',Georgia,serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--loam)}
+body{
+  color:var(--bone); font-family:var(--mono); font-size:15px; line-height:1.65;
+  max-width:880px; margin:0 auto; padding:56px 24px 96px;
+  background:
+    radial-gradient(1200px 500px at 70% -10%, rgba(143,188,121,.05), transparent 60%),
+    var(--loam);
+}
+a{color:var(--leaf); text-decoration:none; border-bottom:1px solid var(--hairline)}
+a:hover{border-bottom-color:var(--leaf)}
+.eyebrow{color:var(--ash); font-size:11px; letter-spacing:.28em; text-transform:uppercase}
+h1{
+  font-family:var(--disp); font-weight:340; font-size:clamp(44px,9vw,82px);
+  line-height:.98; letter-spacing:-.015em; margin:14px 0 22px;
+}
+h1 em{font-style:italic; color:var(--leaf); font-weight:300}
+.thesis{max-width:56ch; color:var(--bone)}
+.thesis b{color:var(--leaf); font-weight:500}
+.liveline{
+  display:flex; flex-wrap:wrap; gap:10px 26px; align-items:baseline;
+  margin:34px 0 56px; padding:14px 0; border-top:1px solid var(--hairline);
+  border-bottom:1px solid var(--hairline); font-size:12.5px; color:var(--ash);
+}
+.dot{display:inline-block; width:7px; height:7px; border-radius:50%; background:var(--leaf); margin-right:8px; vertical-align:1px}
+@media (prefers-reduced-motion:no-preference){ .dot{animation:pulse 2.6s ease-in-out infinite} }
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.section-label{margin:0 0 18px; color:var(--ash); font-size:11px; letter-spacing:.28em; text-transform:uppercase}
+
+/* ---- instruments ---- */
+.instrument{
+  background:var(--moss); border:1px solid var(--hairline);
+  padding:26px 26px 22px; margin-bottom:22px;
+}
+.inst-head{display:flex; justify-content:space-between; align-items:baseline; gap:16px; flex-wrap:wrap}
+.inst-name{font-family:var(--disp); font-size:24px; font-weight:380}
+.inst-channel{color:var(--ash); font-size:12px}
+.reading{display:flex; align-items:baseline; gap:14px; margin:18px 0 6px}
+.bps{font-size:46px; font-weight:500; letter-spacing:-.02em; font-variant-numeric:tabular-nums}
+.bps small{font-size:14px; color:var(--ash); font-weight:400; letter-spacing:0}
+.condition{font-family:var(--disp); font-style:italic; font-size:19px; color:var(--leaf)}
+.condition.harsh{color:var(--ember)}
+/* the sky strip — signature element */
+.sky{position:relative; height:14px; margin:16px 0 8px;
+  background:linear-gradient(90deg,#5b3a25 0%, #6e5a31 22%, #44593b 50%, #3a5e52 74%, #28323f 100%);
+  border:1px solid var(--hairline);}
+.needle{position:absolute; top:-5px; bottom:-5px; width:2px; background:var(--bone); left:50%;
+  transition:left 1.4s cubic-bezier(.4,0,.2,1);}
+@media (prefers-reduced-motion:reduce){ .needle{transition:none} }
+.sky-scale{display:flex; justify-content:space-between; color:var(--ash); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase}
+.spark{display:block; width:100%; height:54px; margin-top:18px}
+.spark polyline{fill:none; stroke:var(--leaf); stroke-width:1.5; opacity:.85}
+.spark line{stroke:var(--hairline)}
+.inst-meta{margin-top:12px; color:var(--ash); font-size:12px; display:flex; gap:22px; flex-wrap:wrap}
+
+/* ---- ledger ---- */
+.ledger{border:1px solid var(--hairline); padding:30px 26px; margin:56px 0 0; background:transparent}
+.ledger .big{
+  font-size:clamp(30px,6.4vw,52px); font-weight:500; letter-spacing:.01em;
+  font-variant-numeric:tabular-nums; color:var(--bone);
+}
+.ledger .big .ok{color:var(--leaf)}
+.ledger .sub{color:var(--ash); font-size:12.5px; margin-top:8px}
+.ledger-row{display:flex; gap:34px; flex-wrap:wrap; margin-top:22px; padding-top:18px; border-top:1px solid var(--hairline)}
+.ledger-row div span{display:block}
+.ledger-row .k{color:var(--ash); font-size:11px; letter-spacing:.22em; text-transform:uppercase}
+.ledger-row .v{font-size:17px; margin-top:3px; font-variant-numeric:tabular-nums}
+
+/* ---- rules ---- */
+.rules{margin-top:72px; display:grid; gap:34px}
+@media (min-width:680px){ .rules{grid-template-columns:1fr 1fr 1fr} }
+.rule h3{font-family:var(--disp); font-weight:400; font-size:20px; margin-bottom:8px}
+.rule p{color:var(--ash); font-size:13.5px}
+.rule p b{color:var(--bone); font-weight:500}
+
+footer{margin-top:84px; padding-top:20px; border-top:1px solid var(--hairline); color:var(--ash); font-size:12px}
+footer .pid{word-break:break-all; color:var(--bone)}
+.copy{cursor:pointer; color:var(--leaf); border-bottom:1px dashed var(--hairline)}
+.err{color:var(--ember)}
+</style>
+</head>
+<body>
+
+<p class="eyebrow">A living experiment on X1 · est. genesis, June 2026</p>
+<h1>entropy<br><em>garden</em></h1>
+<p class="thesis">A garden whose weather is the blockchain itself. Every storm on this page is <b>real traffic on X1, right now</b> — fee pressure becomes drought, transaction flow becomes rain. Plants will live and die by it. Nothing here is simulated.</p>
+
+<div class="liveline">
+  <span><span class="dot"></span><span id="status">contacting the garden…</span></span>
+  <span>slot <span id="slot">—</span></span>
+  <span>reads every 20s from rpc.mainnet.x1.xyz</span>
+</div>
+
+<p class="section-label">Instruments — live weather</p>
+
+<div class="instrument" id="inst0">
+  <div class="inst-head">
+    <span class="inst-name">Region 0 · The Dry Field</span>
+    <span class="inst-channel">channel: fee market — drought index</span>
+  </div>
+  <div class="reading">
+    <span class="bps"><span id="bps0">—</span><small> / 10000 bps</small></span>
+    <span class="condition" id="cond0"></span>
+  </div>
+  <div class="sky"><div class="needle" id="needle0"></div></div>
+  <div class="sky-scale"><span>parched</span><span>temperate</span><span>storm</span></div>
+  <svg class="spark" id="spark0" viewBox="0 0 320 54" preserveAspectRatio="none" aria-label="recent weather history"></svg>
+  <div class="inst-meta">
+    <span>plots: <span id="plots0">—</span></span>
+    <span>last sample: slot <span id="ws0">—</span></span>
+    <span>history: last <span id="n0">—</span> accepted samples</span>
+  </div>
+</div>
+
+<div class="instrument" id="inst1">
+  <div class="inst-head">
+    <span class="inst-name">Region 1 · The Rainline</span>
+    <span class="inst-channel">channel: transfer flow — rainfall</span>
+  </div>
+  <div class="reading">
+    <span class="bps"><span id="bps1">—</span><small> / 10000 bps</small></span>
+    <span class="condition" id="cond1"></span>
+  </div>
+  <div class="sky"><div class="needle" id="needle1"></div></div>
+  <div class="sky-scale"><span>still</span><span>temperate</span><span>deluge</span></div>
+  <svg class="spark" id="spark1" viewBox="0 0 320 54" preserveAspectRatio="none" aria-label="recent weather history"></svg>
+  <div class="inst-meta">
+    <span>plots: <span id="plots1">—</span></span>
+    <span>last sample: slot <span id="ws1">—</span></span>
+    <span>history: last <span id="n1">—</span> accepted samples</span>
+  </div>
+</div>
+
+<div class="ledger">
+  <p class="section-label" style="margin-bottom:14px">The conservation ledger</p>
+  <div class="big"><span id="pool">—</span> <span class="ok" id="check"></span></div>
+  <div class="sub">nutrients in the world — never minted, never burned, only moved. Verified against genesis on every read.</div>
+  <div class="ledger-row">
+    <div><span class="k">plots claimed</span><span class="v" id="plots">— / —</span></div>
+    <div><span class="k">garden state</span><span class="v" id="paused">—</span></div>
+    <div><span class="k">genesis supply</span><span class="v" id="genesis">—</span></div>
+  </div>
+</div>
+
+<div class="rules">
+  <div class="rule"><h3>Decay is real</h3><p>Plants lose health by <b>elapsed slots</b>, not server clocks. Neglect a plant through a storm and it dies in hours. Death composts back into shared soil — <b>losing feeds the ecosystem</b>.</p></div>
+  <div class="rule"><h3>The weather is the chain</h3><p>Permissionless oracles sample live X1 activity; the program clamps and median-filters every reading. <b>No one — including us — controls the sky.</b></p></div>
+  <div class="rule"><h3>Nothing is pre-mined</h3><p>The nutrient supply is fixed at genesis, forever. The future EG token mints from <b>harvests only</b> — no presale, no allocation. Nobody buys in; everybody grows in.</p></div>
+</div>
+
+<footer>
+  <p>program <span class="pid" id="pid">8gTX3w2mAkKhGip9Mmvhb3gkcETugkfLEvmT4BNTh1By</span> <span class="copy" onclick="navigator.clipboard.writeText(document.getElementById('pid').textContent);this.textContent='copied'">copy</span></p>
+  <p style="margin-top:8px">Plots open soon — 500 in the first season. Built on <a href="https://x1.xyz" rel="noopener">X1</a>. Open source on <a href="https://github.com/x1investorx1-cmyk/entropy-garden" rel="noopener">GitHub</a>.</p>
+</footer>
+
+<script>
+const RPC = "https://rpc.mainnet.x1.xyz";
+const A = {
+  config: "3uXybAM2mZwWpSmptCUs6xFHQ3UNwzShXgRUGe5XfvJX",
+  pool:   "9fXEHt9ZUvjb2QhHQ26MqGcUKmZakbMLt5oygrQwgzBb",
+  region: ["F5bTy6FQbUxN8S9MciG9vEcatFZqAPWAYobnUEd4vcqc","BSbYnXJ6YoKTjez3toMzioYFR44dUW54sV6kndsv8VFi"],
+  feed:   ["7ciMwptribaYxvAuG1De3xvDc9AKyw3AiRVavE7brcN7","7kz8hxdRA2ejqKk2KxyKh4KTg17htVAybvXC72yiQ2v7"],
+};
+const $ = id => document.getElementById(id);
+const fmt = n => n.toLocaleString("en-US");
+
+function bytes(b64){const s=atob(b64);const u=new Uint8Array(s.length);for(let i=0;i<s.length;i++)u[i]=s.charCodeAt(i);return new DataView(u.buffer);}
+async function rpc(method, params){
+  const r = await fetch(RPC,{method:"POST",headers:{"content-type":"application/json"},
+    body:JSON.stringify({jsonrpc:"2.0",id:1,method,params})});
+  const j = await r.json(); if(j.error) throw new Error(j.error.message); return j.result;
+}
+// Borsh layouts after the 8-byte Anchor discriminator (little-endian, packed):
+const decode = {
+  config: d => ({ regions:d.getUint16(40,true), maxPlots:d.getUint32(78,true),
+    totalPlots:d.getUint32(82,true), paused:!!d.getUint8(86) }),
+  pool:   d => ({ balance:d.getBigUint64(8,true), genesis:d.getBigUint64(16,true) }),
+  region: d => ({ id:d.getUint16(8,true), bps:d.getUint16(11,true),
+    lastSlot:d.getBigUint64(13,true), plots:d.getUint32(21,true) }),
+  feed:   d => { const len=d.getUint8(11), out=[];
+    for(let i=0;i<len;i++){ out.push({bps:d.getUint16(12+i*2,true), slot:d.getBigUint64(140+i*8,true)}); }
+    out.sort((a,b)=> a.slot<b.slot?-1:1); return out; },
+};
+const COND = [[2000,"parched","harsh"],[4000,"dry",""],[6000,"temperate",""],[8000,"heavy weather",""],[10001,"storm","harsh"]];
+function condition(bps){ for(const [t,name,cls] of COND) if(bps<t) return [name,cls]; return ["storm","harsh"]; }
+
+function drawSpark(svg, samples){
+  if(!samples.length){ svg.innerHTML=""; return; }
+  const W=320,H=54,pad=3;
+  const xs = samples.map((s,i)=> pad + i*(W-2*pad)/Math.max(1,samples.length-1));
+  const ys = samples.map(s=> H-pad - (s.bps/10000)*(H-2*pad));
+  const pts = xs.map((x,i)=>`${x.toFixed(1)},${ys[i].toFixed(1)}`).join(" ");
+  svg.innerHTML = `<line x1="0" y1="${H/2}" x2="${W}" y2="${H/2}"/><polyline points="${pts}"/>`;
+}
+
+async function tick(){
+  try{
+    const keys = [A.config, A.pool, A.region[0], A.region[1], A.feed[0], A.feed[1]];
+    const [slot, accs] = await Promise.all([
+      rpc("getSlot",[]),
+      rpc("getMultipleAccounts",[keys,{encoding:"base64"}]),
+    ]);
+    const v = accs.value.map(a=> a && bytes(a.data[0]));
+    const cfg = decode.config(v[0]), pool = decode.pool(v[1]);
+    $("slot").textContent = fmt(slot);
+    $("pool").textContent = fmt(Number(pool.balance));
+    $("genesis").textContent = fmt(Number(pool.genesis));
+    $("plots").textContent = `${cfg.totalPlots} / ${cfg.maxPlots}`;
+    $("paused").textContent = cfg.paused ? "paused" : "growing";
+    for(const i of [0,1]){
+      const r = decode.region(v[2+i]), hist = decode.feed(v[4+i]);
+      $("bps"+i).textContent = fmt(r.bps);
+      const [name,cls] = condition(r.bps);
+      const c=$("cond"+i); c.textContent=name; c.className="condition "+cls;
+      $("needle"+i).style.left = (r.bps/100).toFixed(2)+"%";
+      $("plots"+i).textContent = fmt(r.plots);
+      $("ws"+i).textContent = fmt(Number(r.lastSlot));
+      $("n"+i).textContent = hist.length;
+      drawSpark($("spark"+i), hist);
+    }
+    // conservation note: full audit needs every plot+plant; pre-plots, pool === genesis is the law itself
+    $("check").textContent = (cfg.totalPlots===0 && pool.balance===pool.genesis) ? "· conserved ✓"
+      : "· of " + fmt(Number(pool.genesis));
+    $("status").textContent = "live — the garden is breathing";
+    $("status").className = "";
+  }catch(e){
+    $("status").textContent = "observatory lost contact — retrying";
+    $("status").className = "err";
+  }
+}
+tick(); setInterval(tick, 20000);
+</script>
+</body>
+</html>
