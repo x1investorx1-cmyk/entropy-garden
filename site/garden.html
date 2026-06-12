@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Your Garden — Entropy Garden</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌱</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,300..600,50&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -104,6 +105,14 @@ const PLOT_DISC = [83,82,6,254,46,4,206,230];
 const REGION_NAME = ["the Dry Field","the Rainline"];
 const $ = id => document.getElementById(id);
 const log = (msg, cls="") => { const d=document.createElement("div"); d.className=cls; d.textContent="› "+msg; $("log").prepend(d); };
+const te = new TextEncoder();
+const seedBytes = s => te.encode(s);
+const u8 = a => Uint8Array.from(a);
+function u32le(n){const b=new Uint8Array(4);new DataView(b.buffer).setUint32(0,n,true);return b}
+function u16le(n){const b=new Uint8Array(2);new DataView(b.buffer).setUint16(0,n,true);return b}
+function cat(...arrs){const len=arrs.reduce((a,b)=>a+b.length,0);const out=new Uint8Array(len);let o=0;for(const a of arrs){out.set(a,o);o+=a.length}return out}
+window.addEventListener("unhandledrejection", e => log("error: "+(e.reason?.message||e.reason),"bad"));
+window.addEventListener("error", e => log("error: "+e.message,"bad"));
 
 /* ---------- wallets: Wallet Standard + Backpack fallback ---------- */
 const wallets = new Map();
@@ -124,11 +133,12 @@ async function connectStandard(w){
   const pk = new PublicKey(acct.publicKey ?? acct.address);
   const sast = w.features["solana:signAndSendTransaction"];
   const st   = w.features["solana:signTransaction"];
+  const chain = acct.chains?.[0] ?? w.chains?.[0] ?? "solana:mainnet";
   return { name:w.name, publicKey:pk, signAndSend: async tx => {
     tx.feePayer = pk; tx.recentBlockhash = (await conn.getLatestBlockhash()).blockhash;
     if(sast){
       const ser = tx.serialize({requireAllSignatures:false,verifySignatures:false});
-      const [out] = await sast.signAndSendTransaction({transaction:ser, account:acct, chain:"solana:mainnet"});
+      const [out] = await sast.signAndSendTransaction({transaction:ser, account:acct, chain});
       return typeof out.signature==="string" ? out.signature : solanaWeb3.bs58?.encode?.(out.signature) ?? base58(out.signature);
     }
     const [signed] = await st.signTransaction({transaction:tx.serialize({requireAllSignatures:false,verifySignatures:false}), account:acct});
@@ -200,9 +210,8 @@ function decPlant(buf){
 
 /* ---------- instructions ---------- */
 function ixClaim(owner, regionIdx, totalPlots){
-  const idx = Buffer.alloc(4); idx.writeUInt32LE(totalPlots);
-  const [plot] = PublicKey.findProgramAddressSync([Buffer.from("plot"), owner.toBuffer(), idx], PID);
-  return [plot, new TransactionInstruction({ programId:PID, data:Buffer.from(IX.claim), keys:[
+  const [plot] = PublicKey.findProgramAddressSync([seedBytes("plot"), owner.toBytes(), u32le(totalPlots)], PID);
+  return [plot, new TransactionInstruction({ programId:PID, data:u8(IX.claim), keys:[
     {pubkey:owner, isSigner:true, isWritable:true},
     {pubkey:CONFIG, isSigner:false, isWritable:true},
     {pubkey:POOL, isSigner:false, isWritable:true},
@@ -212,8 +221,8 @@ function ixClaim(owner, regionIdx, totalPlots){
   ]})];
 }
 function ixPlant(owner, plot, slotIndex, species=1){
-  const [plant] = PublicKey.findProgramAddressSync([Buffer.from("plant"), plot.toBuffer(), Buffer.from([slotIndex])], PID);
-  const data = Buffer.concat([Buffer.from(IX.plant), Buffer.from([slotIndex]), (()=>{const b=Buffer.alloc(2);b.writeUInt16LE(species);return b})()]);
+  const [plant] = PublicKey.findProgramAddressSync([seedBytes("plant"), plot.toBytes(), u8([slotIndex])], PID);
+  const data = cat(u8(IX.plant), u8([slotIndex]), u16le(species));
   return [plant, new TransactionInstruction({ programId:PID, data, keys:[
     {pubkey:owner, isSigner:true, isWritable:true},
     {pubkey:CONFIG, isSigner:false, isWritable:false},
@@ -224,7 +233,7 @@ function ixPlant(owner, plot, slotIndex, species=1){
   ]})];
 }
 function ixTend(owner, plot, plant, regionIdx){
-  return new TransactionInstruction({ programId:PID, data:Buffer.from(IX.tend), keys:[
+  return new TransactionInstruction({ programId:PID, data:u8(IX.tend), keys:[
     {pubkey:owner, isSigner:true, isWritable:false},
     {pubkey:CONFIG, isSigner:false, isWritable:false},
     {pubkey:plot, isSigner:false, isWritable:true},
@@ -234,7 +243,7 @@ function ixTend(owner, plot, plant, regionIdx){
   ]});
 }
 function ixCompost(composter, plot, plant, regionIdx){
-  return new TransactionInstruction({ programId:PID, data:Buffer.from(IX.compost), keys:[
+  return new TransactionInstruction({ programId:PID, data:u8(IX.compost), keys:[
     {pubkey:composter, isSigner:true, isWritable:true},
     {pubkey:CONFIG, isSigner:false, isWritable:false},
     {pubkey:POOL, isSigner:false, isWritable:true},
@@ -258,10 +267,12 @@ async function send(ix, label){
 
 /* ---------- actions ---------- */
 async function claim(regionIdx){
-  const info = await conn.getAccountInfo(CONFIG);
-  const total = new DataView(info.data.buffer,info.data.byteOffset).getUint32(82,true);
-  const [,ix] = ixClaim(active.publicKey, regionIdx, total);
-  await send(ix, "claim plot in "+REGION_NAME[regionIdx]);
+  try{
+    const info = await conn.getAccountInfo(CONFIG);
+    const total = new DataView(info.data.buffer,info.data.byteOffset,info.data.byteLength).getUint32(82,true);
+    const [,ix] = ixClaim(active.publicKey, regionIdx, total);
+    await send(ix, "claim plot in "+REGION_NAME[regionIdx]);
+  }catch(e){ log("claim failed: "+(e.message||e),"bad"); }
 }
 $("claim0").onclick = ()=>claim(0); $("claim1").onclick = ()=>claim(1);
 
