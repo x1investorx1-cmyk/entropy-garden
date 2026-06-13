@@ -22,8 +22,9 @@ body{
   color:var(--bone); font-family:var(--mono); font-size:15px; line-height:1.65;
   max-width:880px; margin:0 auto; padding:56px 24px 96px;
   background:
-    radial-gradient(1200px 500px at 70% -10%, rgba(143,188,121,.05), transparent 60%),
-    var(--loam);
+    radial-gradient(1300px 620px at var(--sun-x,70%) -12%, var(--sky-glow,rgba(143,188,121,.06)), transparent 62%),
+    linear-gradient(180deg, var(--sky-top,#0B100C) 0%, var(--loam) 60%);
+  transition: background 4s linear;
 }
 a{color:var(--leaf); text-decoration:none; border-bottom:1px solid var(--hairline)}
 a:hover{border-bottom-color:var(--leaf)}
@@ -256,6 +257,50 @@ async function tick(){
   }
 }
 tick(); setInterval(tick, 20000);
+</script>
+<script>
+/* Seasonal light — the observatory's sky drifts with the visitor's local hour.
+   Pure cosmetic: derives two gradient colors + sun position from the time of day,
+   blends smoothly between four daypart palettes, and re-evaluates each minute. */
+(function(){
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    // honor reduced motion: pick the current palette once, no drift
+  }
+  // palettes as [skyTop rgb, glow rgba] anchored at hours 0,6,12,18 (night, dawn, day, dusk)
+  const KEY = [
+    {h:0,  top:[10,14,22],  glow:[60,80,150,0.05]},   // deep night — cool indigo
+    {h:6,  top:[26,24,30],  glow:[150,120,90,0.06]},   // dawn — warm grey
+    {h:12, top:[14,22,16],  glow:[143,188,121,0.08]},  // midday — full green light
+    {h:18, top:[28,18,14],  glow:[201,123,74,0.07]},   // dusk — amber/ember
+    {h:24, top:[10,14,22],  glow:[60,80,150,0.05]},    // wrap to night
+  ];
+  const lerp=(a,b,t)=>a+(b-a)*t;
+  function blend(hour){
+    let i=0; while(i<KEY.length-1 && hour>=KEY[i+1].h) i++;
+    const A=KEY[i], B=KEY[i+1]||KEY[KEY.length-1];
+    const span=(B.h-A.h)||1, t=(hour-A.h)/span;
+    const top=A.top.map((v,k)=>Math.round(lerp(v,B.top[k],t)));
+    const glow=A.glow.map((v,k)=>lerp(v,B.glow[k],t));
+    // sun crosses the sky: x from 18% (dawn) → 50% (noon) → 82% (dusk)
+    const sunX = 18 + (Math.max(6,Math.min(18,hour))-6)/12*64;
+    return {
+      top:`rgb(${top[0]},${top[1]},${top[2]})`,
+      glow:`rgba(${glow[0].toFixed(0)},${glow[1].toFixed(0)},${glow[2].toFixed(0)},${glow[3].toFixed(3)})`,
+      sunX: sunX.toFixed(0)+"%"
+    };
+  }
+  function apply(){
+    const now=new Date();
+    const hour = now.getHours() + now.getMinutes()/60;
+    const c = blend(hour);
+    const r = document.documentElement.style;
+    r.setProperty("--sky-top", c.top);
+    r.setProperty("--sky-glow", c.glow);
+    r.setProperty("--sun-x", c.sunX);
+  }
+  apply();
+  setInterval(apply, 60000); // drift each minute; the 4s CSS transition smooths it
+})();
 </script>
 </body>
 </html>
