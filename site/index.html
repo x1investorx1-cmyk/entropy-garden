@@ -91,6 +91,20 @@ h1 em{font-style:italic; color:var(--leaf); font-weight:300}
 .ledger-row .k{color:var(--ash); font-size:11px; letter-spacing:.22em; text-transform:uppercase}
 .ledger-row .v{font-size:17px; margin-top:3px; font-variant-numeric:tabular-nums}
 
+
+/* ---- what's next ---- */
+.next{margin-top:64px; border:1px solid var(--hairline); padding:30px 26px; background:linear-gradient(180deg,rgba(20,26,19,.5),transparent)}
+.next .label{color:var(--ash); font-size:11px; letter-spacing:.28em; text-transform:uppercase; margin-bottom:14px}
+.next h3{font-family:var(--disp); font-weight:400; font-size:24px; margin-bottom:10px}
+.next p{color:var(--ash); font-size:13.5px; max-width:64ch; margin-bottom:12px}
+.next p b{color:var(--bone); font-weight:500}
+.next .loop{color:var(--leaf); font-family:var(--disp); font-style:italic; font-size:16px; margin-top:4px}
+.next .phases{display:grid; gap:12px; margin-top:18px}
+@media(min-width:680px){.next .phases{grid-template-columns:1fr 1fr 1fr}}
+.next .phase{border-top:1px solid var(--hairline); padding-top:10px}
+.next .phase .n{color:var(--leaf); font-size:11px; letter-spacing:.2em; text-transform:uppercase}
+.next .phase .t{color:var(--bone); font-size:13.5px; margin-top:4px}
+.next .phase .d{color:var(--ash); font-size:12.5px; margin-top:3px}
 /* ---- rules ---- */
 .rules{margin-top:72px; display:grid; gap:34px}
 @media (min-width:680px){ .rules{grid-template-columns:1fr 1fr 1fr} }
@@ -175,6 +189,19 @@ footer .pid{word-break:break-all; color:var(--bone)}
   <div class="rule"><h3>The weather is the chain</h3><p>Permissionless oracles sample live X1 activity; the program clamps and median-filters every reading. <b>No one — including us — controls the sky.</b></p></div>
   <div class="rule"><h3>Nothing is pre-mined</h3><p>The nutrient supply is fixed at genesis, forever. The future EG token mints from <b>harvests only</b> — no presale, no allocation. Nobody buys in; everybody grows in.</p></div>
 </div>
+
+<section class="next">
+  <p class="label">What's next · the loop closes</p>
+  <h3>You're spending XNT. EG is what grows back.</h3>
+  <p>Today you spend a little XNT to claim land and tend plants — and right now, nothing comes back yet. That's on purpose: this is the season before the harvest. <b>EG is the reward that closes the loop.</b></p>
+  <p>EG will mint from <b>one thing only — harvesting a plant that survived to flowering</b>. A fixed budget each week, split among that week's harvesters, weighted by the storms their plants endured. No presale. No allocation. No tokens for sale today. The richest EG grows at the edge of bad weather.</p>
+  <p class="loop">Burn XNT to grow · grow to flower · flower to harvest · harvest to earn.</p>
+  <div class="phases">
+    <div class="phase"><div class="n">now</div><div class="t">Grow</div><div class="d">Claim, plant, tend through real weather. Nutrients conserved, every action on-chain.</div></div>
+    <div class="phase"><div class="n">next</div><div class="t">Harvest → EG</div><div class="d">Flowering plants harvest into EG, minted only by the program. It appears in your wallet — earned, never bought.</div></div>
+    <div class="phase"><div class="n">later</div><div class="t">Trade, transparently</div><div class="d">Once EG is in many hands, a community/treasury-seeded XNT:EG pool opens trading — announced, from a multisig, never a quiet team sale.</div></div>
+  </div>
+</section>
 
 <footer>
   <p>program <span class="pid" id="pid">8gTX3w2mAkKhGip9Mmvhb3gkcETugkfLEvmT4BNTh1By</span> <span class="copy" onclick="navigator.clipboard.writeText(document.getElementById('pid').textContent);this.textContent='copied'">copy</span></p>
