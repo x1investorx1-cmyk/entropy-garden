@@ -129,7 +129,8 @@ function registerWallet(w){
   try{
     if(!w?.features?.["standard:connect"]) return;
     const chains = w.chains || [];
-    if(chains.some(c=>String(c).startsWith("solana")) || chains.length===0) wallets.set(w.name, w);
+    const ok = chains.length===0 || chains.some(c=>{const s=String(c); return s.startsWith("solana")||s.startsWith("x1");});
+    if(ok) wallets.set(w.name, w);
   }catch(e){}
 }
 window.addEventListener("wallet-standard:register-wallet", ev => ev.detail && registerWallet(ev.detail));
@@ -150,7 +151,8 @@ async function connectStandard(w){
   const pk = new PublicKey(acct.publicKey ?? acct.address);
   const sast = w.features["solana:signAndSendTransaction"];
   const st   = w.features["solana:signTransaction"];
-  const chain = acct.chains?.[0] ?? w.chains?.[0] ?? "solana:mainnet";
+  const allChains = acct.chains?.length ? acct.chains : (w.chains||[]);
+  const chain = allChains.find(c=>String(c).startsWith("x1")) ?? allChains[0] ?? "solana:mainnet";
   const dc = w.features["standard:disconnect"];
   return { name:w.name, publicKey:pk, disconnect: dc ? ()=>dc.disconnect() : null, signAndSend: async tx => {
     tx.feePayer = pk; tx.recentBlockhash = (await conn.getLatestBlockhash()).blockhash;
@@ -188,11 +190,19 @@ $("connectBtn").onclick = () => {
   if(window.backpack || window.xnft?.solana) opts.push({label:"Backpack", go:connectBackpack});
   for(const [name,w] of wallets) if(name!=="Backpack") opts.push({label:name, go:()=>connectStandard(w)});
   if(isMobile && !opts.length){
-    // Mobile: wallets not yet injected — guide user to in-app browser
-    list.innerHTML = `<p class='help' style='margin-bottom:12px'>On mobile, open this page <b>inside your wallet's browser</b>:</p>
-      <p class='help' style='margin-bottom:8px'>• <b>Backpack:</b> tap the globe icon → paste <b>entropygarden.xyz/garden.html</b></p>
-      <p class='help' style='margin-bottom:8px'>• <b>X1 Wallet:</b> tap Browser → paste <b>entropygarden.xyz/garden.html</b></p>
-      <p class='help'>Once inside the wallet browser, your wallet connects automatically.</p>`;
+    // Mobile, no injected wallet yet — offer deep links into wallet in-app browsers
+    const here = encodeURIComponent(location.href);
+    const bpLink = "https://backpack.app/ul/v1/browse/"+here+"?ref="+encodeURIComponent(location.origin);
+    const xLink  = "https://x1terminal.xyz/browse?url="+here; // X1 Wallet browse (adjust if scheme differs)
+    list.innerHTML = `<p class='help' style='margin-bottom:14px'>Open Entropy Garden inside your wallet's browser:</p>`;
+    const mk = (label, href) => { const a=document.createElement("a"); a.href=href; a.className="wopt";
+      a.style.display="block"; a.style.textAlign="center"; a.style.padding="14px"; a.style.border="1px solid var(--leaf)";
+      a.style.color="var(--leaf)"; a.style.marginBottom="10px"; a.textContent=label; return a; };
+    list.appendChild(mk("Open in Backpack →", bpLink));
+    list.appendChild(mk("Open in X1 Wallet →", xLink));
+    const note=document.createElement("p"); note.className="help"; note.style.marginTop="8px";
+    note.textContent="Once the page reopens inside the wallet, tap connect again — your wallet appears automatically.";
+    list.appendChild(note);
   } else if(!opts.length){
     list.innerHTML = "<p class='help'>No wallet detected. Install Backpack or X1 Wallet, set RPC to rpc.mainnet.x1.xyz, then reload.</p>";
   }
