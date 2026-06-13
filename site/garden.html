@@ -47,6 +47,15 @@ dialog{background:var(--moss);color:var(--bone);border:1px solid var(--hairline)
 dialog::backdrop{background:rgba(5,8,5,.8)}
 dialog h3{font-family:var(--disp);font-weight:400;margin-bottom:14px}
 .wopt{display:block;width:100%;text-align:left;margin-bottom:10px}
+
+@media(max-width:600px){
+  button{padding:12px 18px; font-size:14px; min-height:44px}
+  .bar{gap:10px 16px; font-size:12px}
+  .wopt{min-height:52px; font-size:15px; padding:14px 16px}
+  .slots{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+  .slot button{min-height:40px}
+  dialog{width:calc(100vw - 32px); max-width:none; margin:16px}
+}
 </style>
 </head>
 <body>
@@ -126,7 +135,15 @@ function registerWallet(w){
 window.addEventListener("wallet-standard:register-wallet", ev => ev.detail && registerWallet(ev.detail));
 try{ window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{register:registerWallet}})); }catch(e){}
 
-let active = null; // {name, publicKey, signAndSend(tx)}
+let active = null; // {name, publicKey, signAndSend(tx), disconnect?}
+async function disconnectActive(){
+  try{ if(active?.disconnect) await active.disconnect(); }catch(e){}
+  active=null;
+  $("who").textContent="no wallet connected";
+  $("disconnectBtn").style.display="none";
+  $("claim0").disabled=$("claim1").disabled=true;
+  $("plots").innerHTML="";
+}
 async function connectStandard(w){
   const res = await w.features["standard:connect"].connect();
   const acct = res.accounts[0];
@@ -134,7 +151,8 @@ async function connectStandard(w){
   const sast = w.features["solana:signAndSendTransaction"];
   const st   = w.features["solana:signTransaction"];
   const chain = acct.chains?.[0] ?? w.chains?.[0] ?? "solana:mainnet";
-  return { name:w.name, publicKey:pk, signAndSend: async tx => {
+  const dc = w.features["standard:disconnect"];
+  return { name:w.name, publicKey:pk, disconnect: dc ? ()=>dc.disconnect() : null, signAndSend: async tx => {
     tx.feePayer = pk; tx.recentBlockhash = (await conn.getLatestBlockhash()).blockhash;
     if(sast){
       const ser = tx.serialize({requireAllSignatures:false,verifySignatures:false});
@@ -152,7 +170,7 @@ async function connectBackpack(){
   const raw = resp?.publicKey ?? bp.publicKey;
   if(!raw) throw new Error("Backpack connected but returned no public key");
   const pk = new PublicKey(raw.toString());
-  return { name:"Backpack", publicKey:pk, signAndSend: async tx => {
+  return { name:"Backpack", publicKey:pk, disconnect: ()=>bp.disconnect?.(), signAndSend: async tx => {
     tx.feePayer = pk; tx.recentBlockhash = (await conn.getLatestBlockhash()).blockhash;
     const res = await bp.signAndSendTransaction(tx);
     return res?.signature ?? res;
@@ -163,22 +181,30 @@ function base58(bytes){ // minimal b58 for signature display
   let x=BigInt(0); for(const b of bytes) x = (x<<8n)+BigInt(b);
   let s=""; while(x>0n){ s=A[Number(x%58n)]+s; x/=58n; } return s||"1";
 }
+const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 $("connectBtn").onclick = () => {
   const list = $("walletList"); list.innerHTML = "";
   const opts = [];
   if(window.backpack || window.xnft?.solana) opts.push({label:"Backpack", go:connectBackpack});
   for(const [name,w] of wallets) if(name!=="Backpack") opts.push({label:name, go:()=>connectStandard(w)});
-  if(!opts.length){ list.innerHTML = "<p class='help'>No wallet detected. Install Backpack (or an X1-compatible wallet), set its RPC to rpc.mainnet.x1.xyz, then reload.</p>"; }
+  if(isMobile && !opts.length){
+    // Mobile: wallets not yet injected — guide user to in-app browser
+    list.innerHTML = `<p class='help' style='margin-bottom:12px'>On mobile, open this page <b>inside your wallet's browser</b>:</p>
+      <p class='help' style='margin-bottom:8px'>• <b>Backpack:</b> tap the globe icon → paste <b>entropygarden.xyz/garden.html</b></p>
+      <p class='help' style='margin-bottom:8px'>• <b>X1 Wallet:</b> tap Browser → paste <b>entropygarden.xyz/garden.html</b></p>
+      <p class='help'>Once inside the wallet browser, your wallet connects automatically.</p>`;
+  } else if(!opts.length){
+    list.innerHTML = "<p class='help'>No wallet detected. Install Backpack or X1 Wallet, set RPC to rpc.mainnet.x1.xyz, then reload.</p>";
+  }
   for(const o of opts){
     const b = document.createElement("button"); b.className="wopt"; b.textContent = o.label;
-    b.onclick = async () => { try{ active = await o.go(); onConnected(); walletDialog.close(); }
+    b.onclick = async () => { try{ await disconnectActive(); active = await o.go(); onConnected(); walletDialog.close(); }
       catch(e){ log("connect failed: "+e.message,"bad"); } };
     list.appendChild(b);
   }
   walletDialog.showModal();
 };
-$("disconnectBtn").onclick = () => { active=null; $("who").textContent="no wallet connected";
-  $("disconnectBtn").style.display="none"; $("claim0").disabled=$("claim1").disabled=true; $("plots").innerHTML=""; };
+$("disconnectBtn").onclick = () => disconnectActive();
 function onConnected(){
   const a = active.publicKey.toBase58();
   log("connected: "+active.name+" · "+a.slice(0,4)+"…"+a.slice(-4),"ok");
@@ -279,6 +305,7 @@ function friendly(msg){
 }
 async function send(ix, label){
   try{
+    if(!active) throw new Error("no wallet connected");
     log(label+" — sign in your wallet…");
     const tx = new Transaction().add(ix);
     const sig = await active.signAndSend(tx);
