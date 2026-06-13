@@ -35,9 +35,9 @@ svg#tree{display:block;width:100%;height:auto}
   stroke-dasharray:var(--len);stroke-dashoffset:var(--len);
   animation:grow 1.6s ease-out forwards;animation-delay:var(--d,0s)}
 @keyframes grow{to{stroke-dashoffset:0}}
-.leaf{transform-origin:center;transform-box:fill-box;opacity:0;
+.leaf{opacity:0;transform-box:fill-box;transform-origin:center;
   animation:bloom .9s ease-out forwards;animation-delay:var(--d,0s)}
-@keyframes bloom{from{opacity:0;transform:scale(0)}to{opacity:1;transform:scale(1)}}
+@keyframes bloom{from{opacity:0;transform:scale(.2)}to{opacity:1;transform:scale(1)}}
 .bud{opacity:.22}
 @media(prefers-reduced-motion:reduce){.branch,.leaf{animation:none;stroke-dashoffset:0;opacity:1}.leaf{transform:none}}
 .tip{position:fixed;pointer-events:none;background:var(--moss);border:1px solid var(--hairline);
@@ -74,6 +74,11 @@ footer{margin-top:36px;padding-top:18px;border-top:1px solid var(--hairline);col
 </figure>
 
 <div class="tip" id="tip"></div>
+
+<section id="gardeners" style="margin-top:30px">
+  <p style="color:var(--ash);font-size:11px;letter-spacing:.28em;text-transform:uppercase;margin-bottom:14px">Who's cultivating</p>
+  <div id="gardenerList" style="display:grid;gap:8px"></div>
+</section>
 
 <footer>
   <p>Each leaf is a plot account on X1, placed by its claim order. Want to grow one? <a href="/garden.html">Claim your sky →</a></p>
@@ -178,16 +183,18 @@ function buildSkeleton(){
 function el(t){return document.createElementNS(SVGNS,t);}
 function path(d,cls){const p=el("path");p.setAttribute("d",d);if(cls)p.setAttribute("class",cls);return p;}
 function leafShape(x,y,rot,scale){
-  // a simple almond leaf as a path, centered at x,y
-  const g=el("g");
-  g.setAttribute("transform",`translate(${x} ${y}) rotate(${rot}) scale(${scale})`);
+  // outer g = position (never animated); inner g = the leaf body (animated by CSS)
+  const outer=el("g");
+  outer.setAttribute("transform",`translate(${x} ${y}) rotate(${rot}) scale(${scale})`);
+  const inner=el("g"); // CSS bloom animates this; transform-origin center keeps it in place
   const p=el("path");
   p.setAttribute("d","M0 -7 C 5 -3, 5 3, 0 8 C -5 3, -5 -3, 0 -7 Z");
-  g.append(p);
-  // midrib
+  inner.append(p);
   const rib=el("line");rib.setAttribute("x1","0");rib.setAttribute("y1","-6");rib.setAttribute("x2","0");rib.setAttribute("y2","7");
-  rib.setAttribute("stroke","rgba(0,0,0,.18)");rib.setAttribute("stroke-width",".5");g.append(rib);
-  return g;
+  rib.setAttribute("stroke","rgba(0,0,0,.18)");rib.setAttribute("stroke-width",".5");inner.append(rib);
+  outer.append(inner);
+  outer._inner=inner; outer._path=p;  // handles for caller
+  return outer;
 }
 
 const tip=$("tip");
@@ -235,9 +242,9 @@ async function paint(){
         const plot=plotsHere[i];
         if(!plot){ // open land — faint bud
           const bud=leafShape(site.x,site.y,(side?-1:1)*(20+i%40),0.7);
-          bud.setAttribute("class","leaf bud");
-          bud.querySelector("path").setAttribute("fill","var(--ash)");
-          bud.style.setProperty('--d',Math.min(site.delay,2)+'s');
+          bud._inner.setAttribute("class","leaf bud");
+          bud._path.setAttribute("fill","var(--ash)");
+          bud._inner.style.setProperty('--d',Math.min(site.delay,2)+'s');
           gLeaf.append(bud); continue;
         }
         // claimed — color by best plant state in the plot
@@ -259,9 +266,9 @@ async function paint(){
         const scale = 0.9 + (best? Math.min(best.stage,5)*0.13 : 0.0); // grows with stage
         const rot=(side?-1:1)*(18+(i*47)%50);
         const leaf=leafShape(site.x,site.y,rot,scale);
-        leaf.setAttribute("class","leaf");
-        leaf.querySelector("path").setAttribute("fill",fill);
-        leaf.style.setProperty('--d',Math.min(site.delay,2.2)+'s');
+        leaf._inner.setAttribute("class","leaf");
+        leaf._path.setAttribute("fill",fill);
+        leaf._inner.style.setProperty('--d',Math.min(site.delay,2.2)+'s');
         const owner=plot.owner.toString();
         const liveCount=pd.filter(x=>x.health>0).length;
         const html=`<b>Plot #${plot.plotIndex}</b> · ${side?'Rainline':'Dry Field'}<br>`
@@ -270,13 +277,41 @@ async function paint(){
         leaf.addEventListener("mousemove",e=>showTip(html,e.clientX,e.clientY));
         leaf.addEventListener("mouseleave",hideTip);
         if(myWallet&&owner===myWallet){
-          leaf.querySelector("path").setAttribute("stroke","var(--bone)");
-          leaf.querySelector("path").setAttribute("stroke-width","1.2");
+          leaf._path.setAttribute("stroke","var(--bone)");
+          leaf._path.setAttribute("stroke-width","1.2");
         }
         gLeaf.append(leaf);
       }
     }
     $("alive").textContent=alive;$("stress").textContent=stress;$("dead").textContent=dead;
+
+    // ── Who's cultivating: one row per plot with living plants, most-grown first ──
+    const rows=[];
+    for(const side of [0,1]) for(const plot of byRegion[side]){
+      const pd=Object.values(plot._pd||{});
+      const living=pd.filter(x=>x.health>0);
+      if(!living.length) continue;
+      const owner=plot.owner.toString();
+      const topStage=Math.max(...living.map(p=>p.stage));
+      const flowering=living.filter(p=>p.stage>=5).length;
+      rows.push({owner, region:side, plotIndex:plot.plotIndex, count:living.length,
+        topStage, flowering, mine: myWallet&&owner===myWallet});
+    }
+    rows.sort((a,b)=> b.topStage-a.topStage || b.count-a.count);
+    const STAGE_NAME=["seed","sprout","sapling","growing","budding","flowering"];
+    const box=$("gardenerList");
+    if(!rows.length){ box.innerHTML="<p style='color:var(--ash);font-size:13px'>No plants growing yet — be the first to plant.</p>"; }
+    else box.innerHTML = rows.slice(0,40).map(r=>{
+      const sky = r.region? "Rainline":"Dry Field";
+      const flower = r.flowering? ` · ${r.flowering} flowering ✿`:"";
+      return `<div style="display:flex;justify-content:space-between;gap:14px;align-items:baseline;
+        border-bottom:1px solid var(--hairline);padding-bottom:7px;font-size:12.5px;flex-wrap:wrap">
+        <span style="color:${r.mine?'var(--leaf)':'var(--bone)'}">
+          ${r.mine?'★ ':''}${r.owner.slice(0,4)}…${r.owner.slice(-4)}
+          <span style="color:var(--ash)"> · plot #${r.plotIndex} · ${sky}</span></span>
+        <span style="color:var(--ash)">${r.count} growing · ${STAGE_NAME[r.topStage]||'seed'}${flower}</span>
+      </div>`;
+    }).join("");
   }catch(e){console.error(e);}
 }
 paint(); setInterval(paint,20000);
