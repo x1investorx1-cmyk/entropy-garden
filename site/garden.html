@@ -193,21 +193,18 @@ $("connectBtn").onclick = () => {
     // Mobile, no injected wallet yet — offer deep links into wallet in-app browsers
     const here = encodeURIComponent(location.href);
     const bpLink = "https://backpack.app/ul/v1/browse/"+here+"?ref="+encodeURIComponent(location.origin);
-    list.innerHTML = `<p class='help' style='margin-bottom:14px'>On mobile, Entropy Garden runs inside <b>Backpack</b>:</p>`;
-    const a=document.createElement("a"); a.href=bpLink; a.className="wopt";
-    a.style.display="block"; a.style.textAlign="center"; a.style.padding="14px"; a.style.border="1px solid var(--leaf)";
-    a.style.color="var(--leaf)"; a.style.marginBottom="10px"; a.textContent="Open in Backpack →";
-    list.appendChild(a);
-    const note=document.createElement("p"); note.className="help"; note.style.marginTop="6px";
-    note.innerHTML="Once it reopens inside Backpack, tap connect again.<br><br>X1 Wallet is desktop-only for now — to use it, visit on a computer.";
+    const xLink  = "https://x1terminal.xyz/browse?url="+here; // X1 Wallet browse (adjust if scheme differs)
+    list.innerHTML = `<p class='help' style='margin-bottom:14px'>Open Entropy Garden inside your wallet's browser:</p>`;
+    const mk = (label, href) => { const a=document.createElement("a"); a.href=href; a.className="wopt";
+      a.style.display="block"; a.style.textAlign="center"; a.style.padding="14px"; a.style.border="1px solid var(--leaf)";
+      a.style.color="var(--leaf)"; a.style.marginBottom="10px"; a.textContent=label; return a; };
+    list.appendChild(mk("Open in Backpack →", bpLink));
+    list.appendChild(mk("Open in X1 Wallet →", xLink));
+    const note=document.createElement("p"); note.className="help"; note.style.marginTop="8px";
+    note.textContent="Once the page reopens inside the wallet, tap connect again — your wallet appears automatically.";
     list.appendChild(note);
   } else if(!opts.length){
-    list.innerHTML = `<p class='help' style='margin-bottom:14px'>No wallet detected. Install one, set its network to X1 (rpc.mainnet.x1.xyz), then reload:</p>`;
-    const mk = (label, href) => { const a=document.createElement("a"); a.href=href; a.target="_blank"; a.rel="noopener";
-      a.className="wopt"; a.style.display="block"; a.style.textAlign="center"; a.style.padding="14px";
-      a.style.border="1px solid var(--leaf)"; a.style.color="var(--leaf)"; a.style.marginBottom="10px"; a.textContent=label; return a; };
-    list.appendChild(mk("Install X1 Wallet →", "https://chromewebstore.google.com/detail/x1-wallet/kcfmcpdmlchhbikbogddmgopmjbflnae"));
-    list.appendChild(mk("Install Backpack →", "https://backpack.app/download"));
+    list.innerHTML = "<p class='help'>No wallet detected. Install Backpack or X1 Wallet, set RPC to rpc.mainnet.x1.xyz, then reload.</p>";
   }
   for(const o of opts){
     const b = document.createElement("button"); b.className="wopt"; b.textContent = o.label;
