@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Map — Entropy Garden</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌱</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,300..600,50&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@solana/web3.js@1.95.8/lib/index.iife.min.js"></script>
+<style>
+:root{--loam:#0B100C;--moss:#131A13;--hairline:#243224;--bone:#E5EADC;--ash:#7C8772;--leaf:#8FBC79;--ember:#C97B4A;
+--mono:'IBM Plex Mono',ui-monospace,monospace;--disp:'Fraunces',Georgia,serif;}
+*{box-sizing:border-box;margin:0;padding:0}
+html{background:var(--loam)}
+body{color:var(--bone);font-family:var(--mono);font-size:15px;line-height:1.6;max-width:1040px;margin:0 auto;padding:40px 20px 90px;
+background:radial-gradient(1200px 500px at 70% -10%,rgba(143,188,121,.05),transparent 60%),var(--loam)}
+a{color:var(--leaf);text-decoration:none}
+.eyebrow{color:var(--ash);font-size:11px;letter-spacing:.28em;text-transform:uppercase}
+h1{font-family:var(--disp);font-weight:340;font-size:clamp(34px,6vw,54px);line-height:1;margin:10px 0 6px}
+h1 em{font-style:italic;color:var(--leaf);font-weight:300}
+.intro{color:var(--ash);font-size:13.5px;max-width:60ch;margin-bottom:8px}
+.bar{display:flex;gap:24px;flex-wrap:wrap;font-size:12.5px;color:var(--ash);margin:24px 0 14px;padding:12px 0;border-top:1px solid var(--hairline);border-bottom:1px solid var(--hairline)}
+.bar b{color:var(--bone)}
+.legend{display:flex;gap:18px;flex-wrap:wrap;font-size:11.5px;color:var(--ash);margin-bottom:30px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.chip{width:11px;height:11px;border:1px solid var(--hairline);display:inline-block}
+.chip.empty{background:transparent}
+.chip.alive{background:var(--leaf)}
+.chip.stress{background:var(--ember)}
+.chip.dead{background:#3a2a22}
+.biomes{display:grid;gap:22px}
+@media(min-width:780px){.biomes{grid-template-columns:1fr 1fr}}
+.biome{border:1px solid var(--hairline);padding:22px}
+.biome.dry{background:linear-gradient(180deg,rgba(110,90,49,.10),transparent 60%)}
+.biome.rain{background:linear-gradient(180deg,rgba(40,89,82,.12),transparent 60%)}
+.biome h2{font-family:var(--disp);font-weight:400;font-size:23px;margin-bottom:2px}
+.biome .meta{color:var(--ash);font-size:12px;margin-bottom:4px}
+.biome .wx{font-family:var(--disp);font-style:italic;font-size:15px;color:var(--leaf);margin-bottom:16px}
+.biome .wx.harsh{color:var(--ember)}
+.grid{display:grid;grid-template-columns:repeat(10,1fr);gap:5px}
+.cell{aspect-ratio:1;border:1px solid var(--hairline);display:flex;align-items:center;justify-content:center;
+font-size:13px;cursor:default;position:relative;color:var(--ash);transition:transform .1s}
+.cell.empty{border-style:dashed;opacity:.4}
+.cell.mine{outline:1.5px solid var(--leaf);outline-offset:1px}
+.cell.alive{color:var(--leaf);border-color:var(--leaf)}
+.cell.stress{color:var(--ember);border-color:var(--ember)}
+.cell.dead{color:#6b5142}
+.cell:hover{transform:scale(1.18);z-index:5}
+.tip{position:fixed;pointer-events:none;background:var(--moss);border:1px solid var(--hairline);
+padding:8px 11px;font-size:11.5px;color:var(--bone);z-index:50;max-width:240px;display:none;line-height:1.5}
+.tip b{color:var(--leaf)}
+footer{margin-top:46px;padding-top:18px;border-top:1px solid var(--hairline);color:var(--ash);font-size:12px}
+.nav{display:flex;gap:18px;margin-bottom:6px}
+</style>
+</head>
+<body>
+<div class="nav">
+  <a href="/">← observatory</a><a href="/garden.html">your garden →</a>
+</div>
+<p class="eyebrow">The living map · reads mainnet every 20s</p>
+<h1>the <em>garden</em>, entire</h1>
+<p class="intro">Every parcel below is real on-chain state. Claimed plots glow with what's growing in them; dark parcels are open land. Two territories, two skies — and every claim, plant, and tend is an X1 transaction that becomes part of the weather itself.</p>
+
+<div class="bar">
+  <span>claimed: <b id="claimed">—</b> / 500</span>
+  <span>living plants: <b id="alive">—</b></span>
+  <span>struggling: <b id="stress">—</b></span>
+  <span>fallen: <b id="dead">—</b></span>
+  <span>slot <b id="slot">—</b></span>
+</div>
+<div class="legend">
+  <span><i class="chip empty"></i> open land</span>
+  <span><i class="chip alive"></i> thriving</span>
+  <span><i class="chip stress"></i> stressed</span>
+  <span><i class="chip dead"></i> fallen — awaiting compost</span>
+  <span style="color:var(--leaf)">▢ your plots outlined</span>
+</div>
+
+<div class="biomes">
+  <div class="biome dry">
+    <h2>The Dry Field</h2>
+    <div class="meta">channel: fee market · <span id="c0">—</span> claimed</div>
+    <div class="wx" id="wx0">—</div>
+    <div class="grid" id="grid0"></div>
+  </div>
+  <div class="biome rain">
+    <h2>The Rainline</h2>
+    <div class="meta">channel: transfer flow · <span id="c1">—</span> claimed</div>
+    <div class="wx" id="wx1">—</div>
+    <div class="grid" id="grid1"></div>
+  </div>
+</div>
+
+<div class="tip" id="tip"></div>
+
+<footer>
+  <p>A claimed parcel is a plot account on X1. Hover any glowing cell for its story. Want one? <a href="/garden.html">Claim your sky →</a></p>
+  <p style="margin-top:6px">program 8gTX3w2mAkKhGip9Mmvhb3gkcETugkfLEvmT4BNTh1By · 500 plots, first season</p>
+</footer>
+
+<script>
+const {Connection, PublicKey} = solanaWeb3;
+const RPC="https://rpc.mainnet.x1.xyz";
+const conn=new Connection(RPC,"confirmed");
+const PID=new PublicKey("8gTX3w2mAkKhGip9Mmvhb3gkcETugkfLEvmT4BNTh1By");
+const REGION=["F5bTy6FQbUxN8S9MciG9vEcatFZqAPWAYobnUEd4vcqc","BSbYnXJ6YoKTjez3toMzioYFR44dUW54sV6kndsv8VFi"].map(s=>new PublicKey(s));
+const CONFIG=new PublicKey("3uXybAM2mZwWpSmptCUs6xFHQ3UNwzShXgRUGe5XfvJX");
+const PLOT_DISC=[83,82,6,254,46,4,206,230];
+const STAGE=["·","𖧧","𖥧","𖥧","❀","✿"];
+const $=id=>document.getElementById(id);
+const dv=b=>new DataView(b.buffer,b.byteOffset,b.byteLength);
+
+function b58(bytes){const A="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+let x=0n;for(const b of bytes)x=(x<<8n)+BigInt(b);let s="";while(x>0n){s=A[Number(x%58n)]+s;x/=58n}
+let z=0;for(const b of bytes){if(b===0)z++;else break}return "1".repeat(z)+(s||"");}
+
+function decPlot(buf){const d=dv(buf);let o=8;
+const owner=new PublicKey(buf.slice(o,o+32));o+=32;
+const region=new PublicKey(buf.slice(o,o+32));o+=32;
+const plotIndex=d.getUint32(o,true);o+=4;
+const soil=d.getBigUint64(o,true);o+=8;
+const plants=[];for(let i=0;i<6;i++){const tag=d.getUint8(o);o+=1;
+if(tag){plants.push(new PublicKey(buf.slice(o,o+32)));o+=32}else plants.push(null)}
+return {owner,region,plotIndex,soil,plants};}
+function decPlant(buf){const d=dv(buf);
+return {optimal:d.getUint16(75,true),health:d.getUint16(93,true),
+biomass:d.getBigUint64(95,true),stage:d.getUint8(103)};}
+
+let myWallet=null;
+try{ const w=window.backpack?.solana??window.backpack; if(w?.publicKey) myWallet=w.publicKey.toString(); }catch(e){}
+
+const tip=$("tip");
+function showTip(html,x,y){tip.innerHTML=html;tip.style.display="block";
+tip.style.left=Math.min(x+14,innerWidth-250)+"px";tip.style.top=(y+14)+"px";}
+function hideTip(){tip.style.display="none";}
+
+function condition(bps){if(bps<2000)return["parched",1];if(bps<4000)return["dry",0];
+if(bps<6000)return["temperate",0];if(bps<8000)return["heavy weather",0];return["storm",1];}
+
+async function paint(){
+  try{
+    const [slot, cfgInfo, regionInfos, plots] = await Promise.all([
+      conn.getSlot(),
+      conn.getAccountInfo(CONFIG),
+      conn.getMultipleAccountsInfo(REGION),
+      conn.getProgramAccounts(PID,{filters:[{memcmp:{offset:0,bytes:b58(Uint8Array.from(PLOT_DISC))}}]}),
+    ]);
+    $("slot").textContent=slot.toLocaleString();
+    const cd=dv(cfgInfo.data);
+    $("claimed").textContent=cd.getUint32(82,true);
+
+    const wx=[0,1].map(i=>dv(regionInfos[i].data).getUint16(11,true));
+    [0,1].forEach(i=>{const [name,harsh]=condition(wx[i]);
+      const el=$("wx"+i);el.textContent=`${wx[i].toLocaleString()} bps — ${name}`;el.className="wx"+(harsh?" harsh":"");});
+
+    // gather plot data per region, indexed by plotIndex for stable placement
+    const byRegion=[[],[]];
+    const plantKeys=[]; const plantOwner=[];
+    for(const {account} of plots){
+      const p=decPlot(account.data);
+      const ri=p.region.equals(REGION[0])?0:1;
+      byRegion[ri].push(p);
+    }
+    // fetch all plants in one batch
+    const allPlantKeys=[]; const plantRef=[];
+    for(const ri of [0,1]) for(const p of byRegion[ri])
+      p.plants.forEach((pk,si)=>{ if(pk){allPlantKeys.push(pk); plantRef.push({p,si}); }});
+    const plantInfos = allPlantKeys.length? await conn.getMultipleAccountsInfo(allPlantKeys):[];
+    plantInfos.forEach((info,j)=>{ if(info){ const {p,si}=plantRef[j]; (p._pd=p._pd||{})[si]=decPlant(info.data);} });
+
+    let alive=0,stress=0,dead=0;
+    for(const ri of [0,1]){
+      $("c"+ri).textContent=byRegion[ri].length;
+      const grid=$("grid"+ri); grid.innerHTML="";
+      // map plotIndex -> plot for this region
+      const slots=new Array(50).fill(null);
+      byRegion[ri].forEach((p,k)=> slots[k]=p);
+      for(let k=0;k<50;k++){
+        const cell=document.createElement("div");
+        const p=slots[k];
+        if(!p){ cell.className="cell empty"; grid.appendChild(cell); continue; }
+        const pd=p._pd||{};
+        const livePlants=Object.values(pd);
+        let cls="cell", glyph="◦", worst=10000, anyDead=false, anyStress=false, anyAlive=false;
+        for(const pl of livePlants){
+          if(pl.health===0){anyDead=true;}
+          else{ anyAlive=true;
+            const s=Math.abs(wx[ri]-pl.optimal);
+            if(s>2000||pl.health<300){anyStress=true;}
+            glyph=STAGE[pl.stage]||"·";
+          }
+        }
+        if(anyAlive&&!anyStress){cls+=" alive";alive++;}
+        else if(anyStress){cls+=" stress";glyph="✦";stress++;}
+        else if(anyDead){cls+=" dead";glyph="☠";dead++;}
+        else {glyph="◦";} // claimed, empty soil
+        if(myWallet&&p.owner.toString()===myWallet) cls+=" mine";
+        cell.className=cls; cell.textContent=glyph;
+        const ownerStr=p.owner.toString();
+        const liveCount=livePlants.filter(x=>x.health>0).length;
+        const html=`<b>Plot #${p.plotIndex}</b><br>${ownerStr.slice(0,4)}…${ownerStr.slice(-4)}`
+          +`<br>soil ${p.soil.toLocaleString()} · ${liveCount}/6 growing`
+          +(myWallet&&ownerStr===myWallet?"<br><b>— yours</b>":"");
+        cell.onmousemove=e=>showTip(html,e.clientX,e.clientY);
+        cell.onmouseleave=hideTip;
+        grid.appendChild(cell);
+      }
+    }
+    $("alive").textContent=alive;$("stress").textContent=stress;$("dead").textContent=dead;
+  }catch(e){ console.error(e); }
+}
+paint(); setInterval(paint,20000);
+</script>
+</body>
+</html>
