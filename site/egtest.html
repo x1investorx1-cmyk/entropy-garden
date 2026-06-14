@@ -3,131 +3,173 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>EG Testnet Tester</title>
+<title>EG Testnet — Full Flow</title>
 <script src="https://unpkg.com/@solana/web3.js@1.95.8/lib/index.iife.min.js"></script>
 <style>
-body{background:#0B100C;color:#E5EADC;font-family:ui-monospace,monospace;max-width:760px;margin:0 auto;padding:40px 24px;line-height:1.6}
+body{background:#0B100C;color:#E5EADC;font-family:ui-monospace,monospace;max-width:720px;margin:0 auto;padding:36px 22px;line-height:1.6}
 h1{font-weight:400;color:#9FD27E}
-button{background:transparent;color:#9FD27E;border:1px solid #9FD27E;padding:10px 18px;cursor:pointer;font-family:inherit;margin:4px 0}
-button:disabled{color:#555;border-color:#333}
-input{background:#131A13;border:1px solid #243224;color:#E5EADC;padding:8px;font-family:inherit;width:100%;margin:4px 0}
+button{background:transparent;color:#9FD27E;border:1px solid #9FD27E;padding:11px 18px;cursor:pointer;font-family:inherit;margin:4px 6px 4px 0;min-height:44px}
+button:disabled{color:#555;border-color:#333;cursor:not-allowed}
 .box{border:1px solid #243224;padding:18px;margin:14px 0;background:#131A13}
-.log{font-size:13px;white-space:pre-wrap;max-height:300px;overflow:auto;border-top:1px solid #243224;padding-top:10px;margin-top:14px}
-.ok{color:#9FD27E}.bad{color:#C97B4A}.big{font-size:22px;color:#9FD27E}
-label{font-size:12px;color:#AAB59C}
+.step{color:#AAB59C;font-size:11px;letter-spacing:.2em;text-transform:uppercase;margin-bottom:10px}
+.log{font-size:13px;white-space:pre-wrap;max-height:280px;overflow:auto;border-top:1px solid #243224;padding-top:10px;margin-top:14px}
+.ok{color:#9FD27E}.bad{color:#C97B4A}.big{font-size:24px;color:#9FD27E}
+small{color:#AAB59C}
 </style>
 </head>
 <body>
-<h1>🌱 EG Testnet Tester</h1>
-<p style="color:#AAB59C;font-size:13px">Tends a plant on <b>testnet</b> and shows EG minted to your wallet. Make your wallet's RPC = rpc.testnet.x1.xyz</p>
+<h1>🌱 EG Testnet — Full Flow</h1>
+<p><small>Claim a plot, plant a seed, then tend it to mine EG — all on testnet from your own wallet. Set Backpack RPC = rpc.testnet.x1.xyz and hold a little testnet XNT.</small></p>
 
 <div class="box">
   <button id="connectBtn">connect wallet</button>
-  <span id="who" style="margin-left:10px;color:#AAB59C">not connected</span>
+  <span id="who" style="color:#AAB59C">not connected</span>
 </div>
 
 <div class="box">
   <div class="big">EG balance: <span id="egBal">—</span></div>
-  <label>updates after each tend</label>
 </div>
 
 <div class="box">
-  <label>Plot address (the plot that owns the plant)</label>
-  <input id="plotAddr" placeholder="paste plot pubkey">
-  <label>Plant address (the plant to tend)</label>
-  <input id="plantAddr" placeholder="paste plant pubkey">
-  <label>Region (0 = Dry Field, 1 = Rainline)</label>
-  <input id="regionIdx" value="0">
+  <div class="step">Step 1 · claim a plot (Dry Field)</div>
+  <button id="claimBtn" disabled>claim plot</button>
+  <div id="plotLine" style="font-size:12px;color:#AAB59C;margin-top:8px"></div>
+</div>
+
+<div class="box">
+  <div class="step">Step 2 · plant a seed (slot 0)</div>
+  <button id="plantBtn" disabled>plant seed</button>
+  <div id="plantLine" style="font-size:12px;color:#AAB59C;margin-top:8px"></div>
+</div>
+
+<div class="box">
+  <div class="step">Step 3 · tend → mine EG (wait ~5 min after planting)</div>
   <button id="tendBtn" disabled>tend → mine EG</button>
 </div>
 
 <div class="log" id="log"></div>
 
 <script>
-const {Connection, PublicKey, Transaction, TransactionInstruction, SystemProgram} = solanaWeb3;
-const RPC = "https://rpc.testnet.x1.xyz";
-const conn = new Connection(RPC, "confirmed");
-const PID = new PublicKey("8gTX3w2mAkKhGip9Mmvhb3gkcETugkfLEvmT4BNTh1By");
-const TOKEN_PROGRAM = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
-const ATA_PROGRAM = new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
-const TEND_DISC = [169,80,232,45,188,3,247,112];
+const {Connection, PublicKey, Transaction, TransactionInstruction, SystemProgram, SYSVAR_SLOT_HASHES_PUBKEY} = solanaWeb3;
+const RPC="https://rpc.testnet.x1.xyz";
+const conn=new Connection(RPC,"confirmed");
+const PID=new PublicKey("8gTX3w2mAkKhGip9Mmvhb3gkcETugkfLEvmT4BNTh1By");
+const TOKEN_PROGRAM=new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+const ATA_PROGRAM=new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
 
-// testnet PDAs from init-eg.js output
-const CONFIG = new PublicKey("3uXybAM2mZwWpSmptCUs6xFHQ3UNwzShXgRUGe5XfvJX");
-const EG_CONFIG = new PublicKey("8pMeHLSU3XSTipyeRMcvuD4m5Yav2VrjMtLT5t53poFj");
-const EG_MINT = new PublicKey("EkaYAgWf6mpDCiqcDP9cMbcvKj5MHxCSutPbdSXJcaQ2");
-const EG_MINT_AUTH = new PublicKey("9Wu9Zu7uQ9PaJYhuXjCs4uvnaqAvCLdoVxHZfitJjkcT");
-const TREASURY = new PublicKey("7WrZ9gKMygVBDNi2nk3ibZcc7RS4CeaGQnKb4tYy4hbZ");
-// region/feed PDAs (testnet — derive from seeds)
-function regionPda(i){return PublicKey.findProgramAddressSync([new TextEncoder().encode("region"), new Uint8Array([i,0])],PID)[0];}
-function feedPda(i){return PublicKey.findProgramAddressSync([new TextEncoder().encode("weather"), new Uint8Array([i,0])],PID)[0];}
+const te=s=>new TextEncoder().encode(s);
+const pda=seeds=>PublicKey.findProgramAddressSync(seeds,PID)[0];
+const CONFIG=pda([te("config")]);
+const POOL=pda([te("compost")]);
+const REGION0=pda([te("region"),new Uint8Array([0,0])]);
+const FEED0=pda([te("weather"),new Uint8Array([0,0])]);
+const EG_CONFIG=new PublicKey("8pMeHLSU3XSTipyeRMcvuD4m5Yav2VrjMtLT5t53poFj");
+const EG_MINT=new PublicKey("EkaYAgWf6mpDCiqcDP9cMbcvKj5MHxCSutPbdSXJcaQ2");
+const EG_MINT_AUTH=new PublicKey("9Wu9Zu7uQ9PaJYhuXjCs4uvnaqAvCLdoVxHZfitJjkcT");
+const TREASURY=new PublicKey("7WrZ9gKMygVBDNi2nk3ibZcc7RS4CeaGQnKb4tYy4hbZ");
+const D={claim:[125,132,62,56,128,210,150,69],plant:[139,66,41,202,41,145,173,204],tend:[169,80,232,45,188,3,247,112]};
 
 const $=id=>document.getElementById(id);
 const log=(m,c="")=>{const d=document.createElement("div");d.className=c;d.textContent="› "+m;$("log").prepend(d);};
+function u32le(n){const b=new Uint8Array(4);new DataView(b.buffer).setUint32(0,n,true);return b;}
+function u16le(n){const b=new Uint8Array(2);new DataView(b.buffer).setUint16(0,n,true);return b;}
+function cat(...a){const n=a.reduce((s,x)=>s+x.length,0);const o=new Uint8Array(n);let p=0;for(const x of a){o.set(x,p);p+=x.length;}return o;}
+function ata(owner){return PublicKey.findProgramAddressSync([owner.toBytes(),TOKEN_PROGRAM.toBytes(),EG_MINT.toBytes()],ATA_PROGRAM)[0];}
 
-let wallet=null;
+let wallet=null, myPlot=null, myPlant=null;
+
 $("connectBtn").onclick=async()=>{
   try{
     const w=window.backpack?.solana??window.backpack;
     if(!w){log("no Backpack found","bad");return;}
     const r=await w.connect();
-    wallet={pk:new PublicKey((r?.publicKey??w.publicKey).toString()),
-            sign:tx=>w.signAndSendTransaction(tx)};
+    wallet={pk:new PublicKey((r?.publicKey??w.publicKey).toString()), sign:tx=>w.signAndSendTransaction(tx)};
     $("who").textContent=wallet.pk.toBase58().slice(0,8)+"…";
-    $("tendBtn").disabled=false;
+    $("claimBtn").disabled=false;
     log("connected: "+wallet.pk.toBase58(),"ok");
     refreshEg();
   }catch(e){log("connect failed: "+e.message,"bad");}
 };
 
-function ata(owner){
-  return PublicKey.findProgramAddressSync(
-    [owner.toBytes(), TOKEN_PROGRAM.toBytes(), EG_MINT.toBytes()], ATA_PROGRAM)[0];
-}
-
 async function refreshEg(){
   if(!wallet)return;
   try{
-    const a=ata(wallet.pk);
-    const bal=await conn.getTokenAccountBalance(a).catch(()=>null);
-    $("egBal").textContent = bal? bal.value.uiAmountString+" EG" : "0 EG (no account yet)";
-  }catch(e){$("egBal").textContent="—";}
+    const bal=await conn.getTokenAccountBalance(ata(wallet.pk)).catch(()=>null);
+    $("egBal").textContent=bal? bal.value.uiAmountString+" EG":"0 EG";
+  }catch(e){$("egBal").textContent="0 EG";}
 }
+
+async function send(keys,data,label){
+  const ix=new TransactionInstruction({programId:PID,keys,data:Uint8Array.from(data)});
+  const tx=new Transaction().add(ix);
+  tx.feePayer=wallet.pk;
+  tx.recentBlockhash=(await conn.getLatestBlockhash()).blockhash;
+  log(label+" — sign in wallet…");
+  const res=await wallet.sign(tx);
+  const sig=res?.signature??res;
+  log(label+" sent: "+String(sig).slice(0,18)+"… confirming…");
+  await conn.confirmTransaction(sig,"confirmed");
+  log(label+" ✓","ok");
+  return sig;
+}
+
+$("claimBtn").onclick=async()=>{
+  try{
+    const cfg=await conn.getAccountInfo(CONFIG);
+    const total=new DataView(cfg.data.buffer,cfg.data.byteOffset,cfg.data.byteLength).getUint32(82,true);
+    myPlot=pda([te("plot"),wallet.pk.toBytes(),u32le(total)]);
+    await send([
+      {pubkey:wallet.pk,isSigner:true,isWritable:true},
+      {pubkey:CONFIG,isSigner:false,isWritable:true},
+      {pubkey:POOL,isSigner:false,isWritable:true},
+      {pubkey:REGION0,isSigner:false,isWritable:true},
+      {pubkey:myPlot,isSigner:false,isWritable:true},
+      {pubkey:SystemProgram.programId,isSigner:false,isWritable:false},
+    ], D.claim, "claim plot");
+    $("plotLine").textContent="plot: "+myPlot.toBase58();
+    $("plantBtn").disabled=false;
+  }catch(e){log("claim failed: "+(e.message||e),"bad");}
+};
+
+$("plantBtn").onclick=async()=>{
+  try{
+    if(!myPlot){log("claim a plot first","bad");return;}
+    myPlant=pda([te("plant"),myPlot.toBytes(),new Uint8Array([0])]);
+    await send([
+      {pubkey:wallet.pk,isSigner:true,isWritable:true},
+      {pubkey:CONFIG,isSigner:false,isWritable:false},
+      {pubkey:myPlot,isSigner:false,isWritable:true},
+      {pubkey:myPlant,isSigner:false,isWritable:true},
+      {pubkey:SYSVAR_SLOT_HASHES_PUBKEY,isSigner:false,isWritable:false},
+      {pubkey:SystemProgram.programId,isSigner:false,isWritable:false},
+    ], cat(D.plant,new Uint8Array([0]),u16le(1)), "plant seed");
+    $("plantLine").textContent="plant: "+myPlant.toBase58()+" — wait ~5 min then tend";
+    $("tendBtn").disabled=false;
+  }catch(e){log("plant failed: "+(e.message||e),"bad");}
+};
 
 $("tendBtn").onclick=async()=>{
   try{
-    const plot=new PublicKey($("plotAddr").value.trim());
-    const plant=new PublicKey($("plantAddr").value.trim());
-    const ri=parseInt($("regionIdx").value.trim())||0;
+    if(!myPlant){log("plant a seed first","bad");return;}
     const ownerEg=ata(wallet.pk);
-    // account order MUST match the Tend struct exactly
-    const keys=[
-      {pubkey:wallet.pk, isSigner:true, isWritable:true},        // owner
-      {pubkey:CONFIG, isSigner:false, isWritable:false},          // config
-      {pubkey:plot, isSigner:false, isWritable:true},             // plot
-      {pubkey:plant, isSigner:false, isWritable:true},            // plant
-      {pubkey:feedPda(ri), isSigner:false, isWritable:false},     // feed
-      {pubkey:regionPda(ri), isSigner:false, isWritable:false},   // region
-      {pubkey:EG_CONFIG, isSigner:false, isWritable:true},        // eg_config
-      {pubkey:EG_MINT, isSigner:false, isWritable:true},          // eg_mint
-      {pubkey:EG_MINT_AUTH, isSigner:false, isWritable:false},    // eg_mint_auth
-      {pubkey:ownerEg, isSigner:false, isWritable:true},          // owner_eg (ATA)
-      {pubkey:TREASURY, isSigner:false, isWritable:true},         // treasury
-      {pubkey:TOKEN_PROGRAM, isSigner:false, isWritable:false},   // token_program
-      {pubkey:ATA_PROGRAM, isSigner:false, isWritable:false},     // associated_token_program
-      {pubkey:SystemProgram.programId, isSigner:false, isWritable:false}, // system_program
-    ];
-    const ix=new TransactionInstruction({programId:PID, keys, data:Uint8Array.from(TEND_DISC)});
-    const tx=new Transaction().add(ix);
-    tx.feePayer=wallet.pk;
-    tx.recentBlockhash=(await conn.getLatestBlockhash()).blockhash;
-    log("tending — sign in wallet…");
-    const res=await wallet.sign(tx);
-    const sig=res?.signature??res;
-    log("sent: "+String(sig).slice(0,20)+"… confirming…");
-    await conn.confirmTransaction(sig,"confirmed");
-    log("✅ tend confirmed — EG minted!","ok");
-    setTimeout(refreshEg,1200);
+    await send([
+      {pubkey:wallet.pk,isSigner:true,isWritable:true},
+      {pubkey:CONFIG,isSigner:false,isWritable:false},
+      {pubkey:myPlot,isSigner:false,isWritable:true},
+      {pubkey:myPlant,isSigner:false,isWritable:true},
+      {pubkey:FEED0,isSigner:false,isWritable:false},
+      {pubkey:REGION0,isSigner:false,isWritable:false},
+      {pubkey:EG_CONFIG,isSigner:false,isWritable:true},
+      {pubkey:EG_MINT,isSigner:false,isWritable:true},
+      {pubkey:EG_MINT_AUTH,isSigner:false,isWritable:false},
+      {pubkey:ownerEg,isSigner:false,isWritable:true},
+      {pubkey:TREASURY,isSigner:false,isWritable:true},
+      {pubkey:TOKEN_PROGRAM,isSigner:false,isWritable:false},
+      {pubkey:ATA_PROGRAM,isSigner:false,isWritable:false},
+      {pubkey:SystemProgram.programId,isSigner:false,isWritable:false},
+    ], D.tend, "tend");
+    log("EG should now be in your wallet!","ok");
+    setTimeout(refreshEg,1400);
   }catch(e){log("tend failed: "+(e.message||e),"bad");}
 };
 </script>
