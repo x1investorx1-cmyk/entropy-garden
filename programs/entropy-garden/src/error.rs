@@ -38,4 +38,10 @@ pub enum GardenError {
     NoShares,
     #[msg("Nothing to draw")]
     NothingToDraw,
+    #[msg("Fee exceeds the hard cap.")]
+    FeeAboveCap,
+    #[msg("EG minting is paused.")]
+    EgPaused,
+    #[msg("Plant must be at stage 5 (flowering) to harvest.")]
+    NotFlowering,
 }
