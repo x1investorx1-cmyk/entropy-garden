@@ -108,6 +108,16 @@ const CONFIG = new PublicKey("3uXybAM2mZwWpSmptCUs6xFHQ3UNwzShXgRUGe5XfvJX");
 const POOL   = new PublicKey("9fXEHt9ZUvjb2QhHQ26MqGcUKmZakbMLt5oygrQwgzBb");
 const REGION = ["F5bTy6FQbUxN8S9MciG9vEcatFZqAPWAYobnUEd4vcqc","BSbYnXJ6YoKTjez3toMzioYFR44dUW54sV6kndsv8VFi"].map(s=>new PublicKey(s));
 const FEED   = ["7ciMwptribaYxvAuG1De3xvDc9AKyw3AiRVavE7brcN7","7kz8hxdRA2ejqKk2KxyKh4KTg17htVAybvXC72yiQ2v7"].map(s=>new PublicKey(s));
+// ── EG mining constants (mainnet, same addresses as testnet — PDA seeds are deterministic)
+const EG_CONFIG   = new PublicKey("8pMeHLSU3XSTipyeRMcvuD4m5Yav2VrjMtLT5t53poFj");
+const EG_MINT     = new PublicKey("EkaYAgWf6mpDCiqcDP9cMbcvKj5MHxCSutPbdSXJcaQ2");
+const EG_MINT_AUTH= new PublicKey("9Wu9Zu7uQ9PaJYhuXjCs4uvnaqAvCLdoVxHZfitJjkcT");
+const TREASURY    = new PublicKey("7WrZ9gKMygVBDNi2nk3ibZcc7RS4CeaGQnKb4tYy4hbZ");
+const TOKEN_PROG  = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+const ATA_PROG    = new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
+function ataKey(owner){ return PublicKey.findProgramAddressSync(
+  [owner.toBytes(), TOKEN_PROG.toBytes(), EG_MINT.toBytes()], ATA_PROG)[0]; }
+
 const IX = { claim:[125,132,62,56,128,210,150,69], plant:[139,66,41,202,41,145,173,204],
              tend:[169,80,232,45,188,3,247,112], compost:[150,11,76,97,196,3,122,103] };
 const PLOT_DISC = [83,82,6,254,46,4,206,230];
@@ -262,23 +272,40 @@ function ixClaim(owner, regionIdx, totalPlots){
 function ixPlant(owner, plot, slotIndex, species=1){
   const [plant] = PublicKey.findProgramAddressSync([seedBytes("plant"), plot.toBytes(), u8([slotIndex])], PID);
   const data = cat(u8(IX.plant), u8([slotIndex]), u16le(species));
+  const ownerEg = ataKey(owner);
   return [plant, new TransactionInstruction({ programId:PID, data, keys:[
-    {pubkey:owner, isSigner:true, isWritable:true},
-    {pubkey:CONFIG, isSigner:false, isWritable:false},
-    {pubkey:plot, isSigner:false, isWritable:true},
-    {pubkey:plant, isSigner:false, isWritable:true},
+    {pubkey:owner,              isSigner:true,  isWritable:true},
+    {pubkey:CONFIG,             isSigner:false, isWritable:false},
+    {pubkey:plot,               isSigner:false, isWritable:true},
+    {pubkey:plant,              isSigner:false, isWritable:true},
     {pubkey:SYSVAR_SLOT_HASHES_PUBKEY, isSigner:false, isWritable:false},
+    {pubkey:EG_CONFIG,          isSigner:false, isWritable:true},
+    {pubkey:EG_MINT,            isSigner:false, isWritable:true},
+    {pubkey:EG_MINT_AUTH,       isSigner:false, isWritable:false},
+    {pubkey:ownerEg,            isSigner:false, isWritable:true},
+    {pubkey:TREASURY,           isSigner:false, isWritable:true},
+    {pubkey:TOKEN_PROG,         isSigner:false, isWritable:false},
+    {pubkey:ATA_PROG,           isSigner:false, isWritable:false},
     {pubkey:SystemProgram.programId, isSigner:false, isWritable:false},
   ]})];
 }
 function ixTend(owner, plot, plant, regionIdx){
+  const ownerEg = ataKey(owner);
   return new TransactionInstruction({ programId:PID, data:u8(IX.tend), keys:[
-    {pubkey:owner, isSigner:true, isWritable:false},
-    {pubkey:CONFIG, isSigner:false, isWritable:false},
-    {pubkey:plot, isSigner:false, isWritable:true},
-    {pubkey:plant, isSigner:false, isWritable:true},
-    {pubkey:FEED[regionIdx], isSigner:false, isWritable:false},
-    {pubkey:REGION[regionIdx], isSigner:false, isWritable:false},
+    {pubkey:owner,              isSigner:true,  isWritable:true},
+    {pubkey:CONFIG,             isSigner:false, isWritable:false},
+    {pubkey:plot,               isSigner:false, isWritable:true},
+    {pubkey:plant,              isSigner:false, isWritable:true},
+    {pubkey:FEED[regionIdx],    isSigner:false, isWritable:false},
+    {pubkey:REGION[regionIdx],  isSigner:false, isWritable:false},
+    {pubkey:EG_CONFIG,          isSigner:false, isWritable:true},
+    {pubkey:EG_MINT,            isSigner:false, isWritable:true},
+    {pubkey:EG_MINT_AUTH,       isSigner:false, isWritable:false},
+    {pubkey:ownerEg,            isSigner:false, isWritable:true},
+    {pubkey:TREASURY,           isSigner:false, isWritable:true},
+    {pubkey:TOKEN_PROG,         isSigner:false, isWritable:false},
+    {pubkey:ATA_PROG,           isSigner:false, isWritable:false},
+    {pubkey:SystemProgram.programId, isSigner:false, isWritable:false},
   ]});
 }
 function ixCompost(composter, plot, plant, regionIdx){
@@ -344,6 +371,17 @@ $("claim0").onclick = ()=>claim(0); $("claim1").onclick = ()=>claim(1);
 const STAGE = ["·","𖧧","𖥧","𖥧𖧧","❀","✿"]; // seed → flowering
 async function refreshMine(){
   if(!active) return;
+  // refresh EG balance
+  try{
+    const egAta = ataKey(active.publicKey);
+    const bal = await conn.getTokenAccountBalance(egAta).catch(()=>null);
+    const v = bal ? parseFloat(bal.value.uiAmountString) : 0;
+    const el = document.getElementById("egBal");
+    if(el){ const prev = parseFloat(el.textContent)||0;
+      el.textContent = v.toFixed(v%1?4:0)+" EG";
+      if(v>prev){ el.style.color="var(--bone)"; setTimeout(()=>el.style.color="",1200); }
+    }
+  }catch(e){}
   const accts = await conn.getProgramAccounts(PID, { filters:[
     {memcmp:{offset:0, bytes: base58(Uint8Array.from(PLOT_DISC))}},
     {memcmp:{offset:8, bytes: active.publicKey.toBase58()}},
