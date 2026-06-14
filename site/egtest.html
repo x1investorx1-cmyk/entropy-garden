@@ -12,9 +12,13 @@ button{background:transparent;color:#9FD27E;border:1px solid #9FD27E;padding:11p
 button:disabled{color:#555;border-color:#333;cursor:not-allowed}
 .box{border:1px solid #243224;padding:18px;margin:14px 0;background:#131A13}
 .step{color:#AAB59C;font-size:11px;letter-spacing:.2em;text-transform:uppercase;margin-bottom:10px}
-.log{font-size:13px;white-space:pre-wrap;max-height:280px;overflow:auto;border-top:1px solid #243224;padding-top:10px;margin-top:14px}
-.ok{color:#9FD27E}.bad{color:#C97B4A}.big{font-size:24px;color:#9FD27E}
+.done{color:#9FD27E}
+.log{font-size:13px;white-space:pre-wrap;max-height:240px;overflow:auto;border-top:1px solid #243224;padding-top:10px;margin-top:14px}
+.ok{color:#9FD27E}.bad{color:#C97B4A}.wait{color:#AAB59C}
+.big{font-size:26px;color:#9FD27E}
+.flash{animation:fl 1.2s ease}@keyframes fl{0%{color:#fff;transform:scale(1.08)}100%{color:#9FD27E}}
 small{color:#AAB59C}
+.cool{font-size:13px;color:#AAB59C;margin-top:8px}
 </style>
 </head>
 <body>
@@ -28,23 +32,25 @@ small{color:#AAB59C}
 
 <div class="box">
   <div class="big">EG balance: <span id="egBal">—</span></div>
+  <small id="egNote"></small>
 </div>
 
 <div class="box">
-  <div class="step">Step 1 · claim a plot (Dry Field)</div>
+  <div class="step" id="s1label">Step 1 · claim a plot (Dry Field)</div>
   <button id="claimBtn" disabled>claim plot</button>
   <div id="plotLine" style="font-size:12px;color:#AAB59C;margin-top:8px"></div>
 </div>
 
 <div class="box">
-  <div class="step">Step 2 · plant a seed (slot 0)</div>
+  <div class="step" id="s2label">Step 2 · plant a seed (slot 0)</div>
   <button id="plantBtn" disabled>plant seed</button>
   <div id="plantLine" style="font-size:12px;color:#AAB59C;margin-top:8px"></div>
 </div>
 
 <div class="box">
-  <div class="step">Step 3 · tend → mine EG (wait ~5 min after planting)</div>
+  <div class="step" id="s3label">Step 3 · tend → mine EG</div>
   <button id="tendBtn" disabled>tend → mine EG</button>
+  <div class="cool" id="coolLine"></div>
 </div>
 
 <div class="log" id="log"></div>
@@ -68,6 +74,7 @@ const EG_MINT=new PublicKey("EkaYAgWf6mpDCiqcDP9cMbcvKj5MHxCSutPbdSXJcaQ2");
 const EG_MINT_AUTH=new PublicKey("9Wu9Zu7uQ9PaJYhuXjCs4uvnaqAvCLdoVxHZfitJjkcT");
 const TREASURY=new PublicKey("7WrZ9gKMygVBDNi2nk3ibZcc7RS4CeaGQnKb4tYy4hbZ");
 const D={claim:[125,132,62,56,128,210,150,69],plant:[139,66,41,202,41,145,173,204],tend:[169,80,232,45,188,3,247,112]};
+const COOLDOWN_MS=5*60*1000 + 15000; // ~5 min + buffer
 
 const $=id=>document.getElementById(id);
 const log=(m,c="")=>{const d=document.createElement("div");d.className=c;d.textContent="› "+m;$("log").prepend(d);};
@@ -76,18 +83,19 @@ function u16le(n){const b=new Uint8Array(2);new DataView(b.buffer).setUint16(0,n
 function cat(...a){const n=a.reduce((s,x)=>s+x.length,0);const o=new Uint8Array(n);let p=0;for(const x of a){o.set(x,p);p+=x.length;}return o;}
 function ata(owner){return PublicKey.findProgramAddressSync([owner.toBytes(),TOKEN_PROGRAM.toBytes(),EG_MINT.toBytes()],ATA_PROGRAM)[0];}
 
-let wallet=null, myPlot=null, myPlant=null;
+let wallet=null, myPlot=null, myPlant=null, plantedAt=0, lastEg=0;
 
 $("connectBtn").onclick=async()=>{
   try{
     const w=window.backpack?.solana??window.backpack;
-    if(!w){log("no Backpack found","bad");return;}
+    if(!w){log("no Backpack found — install it and set RPC to testnet","bad");return;}
     const r=await w.connect();
     wallet={pk:new PublicKey((r?.publicKey??w.publicKey).toString()), sign:tx=>w.signAndSendTransaction(tx)};
     $("who").textContent=wallet.pk.toBase58().slice(0,8)+"…";
     $("claimBtn").disabled=false;
     log("connected: "+wallet.pk.toBase58(),"ok");
     refreshEg();
+    setInterval(refreshEg, 8000); // keep balance live
   }catch(e){log("connect failed: "+e.message,"bad");}
 };
 
@@ -95,8 +103,27 @@ async function refreshEg(){
   if(!wallet)return;
   try{
     const bal=await conn.getTokenAccountBalance(ata(wallet.pk)).catch(()=>null);
-    $("egBal").textContent=bal? bal.value.uiAmountString+" EG":"0 EG";
+    const v = bal? parseFloat(bal.value.uiAmountString):0;
+    $("egBal").textContent = v.toFixed(v%1?9:0).replace(/\.?0+$/,'')+" EG";
+    if(v>lastEg && lastEg>=0){ $("egBal").classList.remove("flash"); void $("egBal").offsetWidth; $("egBal").classList.add("flash"); }
+    lastEg=v;
   }catch(e){$("egBal").textContent="0 EG";}
+}
+
+// Robust confirm: poll the signature for ~60s instead of failing on a strict timeout.
+async function confirmTolerant(sig, label){
+  for(let i=0;i<30;i++){
+    try{
+      const st=await conn.getSignatureStatus(sig);
+      const s=st?.value?.confirmationStatus;
+      if(s==="confirmed"||s==="finalized"){ return true; }
+      if(st?.value?.err){ throw new Error("on-chain error"); }
+    }catch(e){ if(e.message==="on-chain error") throw e; }
+    await new Promise(r=>setTimeout(r,2000));
+  }
+  // not confirmed in time, but very likely landed — tell the user gently
+  log(label+": still confirming on testnet… (it usually lands — balance will update)","wait");
+  return false;
 }
 
 async function send(keys,data,label){
@@ -104,21 +131,32 @@ async function send(keys,data,label){
   const tx=new Transaction().add(ix);
   tx.feePayer=wallet.pk;
   tx.recentBlockhash=(await conn.getLatestBlockhash()).blockhash;
-  log(label+" — sign in wallet…");
-  const res=await wallet.sign(tx);
-  const sig=res?.signature??res;
-  log(label+" sent: "+String(sig).slice(0,18)+"… confirming…");
-  await conn.confirmTransaction(sig,"confirmed");
-  log(label+" ✓","ok");
+  log(label+" — approve in your wallet…","wait");
+  let sig;
+  try{
+    const res=await wallet.sign(tx);
+    sig=res?.signature??res;
+  }catch(e){
+    if(String(e.message||e).match(/Plugin Closed|User rejected|closed/i)){
+      log(label+": wallet popup closed — click the button and approve to continue","bad");
+      return null;
+    }
+    throw e;
+  }
+  log(label+" sent — confirming…","wait");
+  const ok=await confirmTolerant(sig,label);
+  if(ok) log(label+" ✓","ok");
+  refreshEg();
   return sig;
 }
 
 $("claimBtn").onclick=async()=>{
+  $("claimBtn").disabled=true;
   try{
     const cfg=await conn.getAccountInfo(CONFIG);
     const total=new DataView(cfg.data.buffer,cfg.data.byteOffset,cfg.data.byteLength).getUint32(82,true);
     myPlot=pda([te("plot"),wallet.pk.toBytes(),u32le(total)]);
-    await send([
+    const sig=await send([
       {pubkey:wallet.pk,isSigner:true,isWritable:true},
       {pubkey:CONFIG,isSigner:false,isWritable:true},
       {pubkey:POOL,isSigner:false,isWritable:true},
@@ -126,16 +164,20 @@ $("claimBtn").onclick=async()=>{
       {pubkey:myPlot,isSigner:false,isWritable:true},
       {pubkey:SystemProgram.programId,isSigner:false,isWritable:false},
     ], D.claim, "claim plot");
-    $("plotLine").textContent="plot: "+myPlot.toBase58();
-    $("plantBtn").disabled=false;
-  }catch(e){log("claim failed: "+(e.message||e),"bad");}
+    if(sig){
+      $("plotLine").textContent="plot: "+myPlot.toBase58();
+      $("s1label").classList.add("done"); $("s1label").textContent="Step 1 · claimed ✓";
+      $("plantBtn").disabled=false;
+    } else { $("claimBtn").disabled=false; }
+  }catch(e){log("claim failed: "+(e.message||e),"bad");$("claimBtn").disabled=false;}
 };
 
 $("plantBtn").onclick=async()=>{
+  $("plantBtn").disabled=true;
   try{
     if(!myPlot){log("claim a plot first","bad");return;}
     myPlant=pda([te("plant"),myPlot.toBytes(),new Uint8Array([0])]);
-    await send([
+    const sig=await send([
       {pubkey:wallet.pk,isSigner:true,isWritable:true},
       {pubkey:CONFIG,isSigner:false,isWritable:false},
       {pubkey:myPlot,isSigner:false,isWritable:true},
@@ -143,16 +185,38 @@ $("plantBtn").onclick=async()=>{
       {pubkey:SYSVAR_SLOT_HASHES_PUBKEY,isSigner:false,isWritable:false},
       {pubkey:SystemProgram.programId,isSigner:false,isWritable:false},
     ], cat(D.plant,new Uint8Array([0]),u16le(1)), "plant seed");
-    $("plantLine").textContent="plant: "+myPlant.toBase58()+" — wait ~5 min then tend";
-    $("tendBtn").disabled=false;
-  }catch(e){log("plant failed: "+(e.message||e),"bad");}
+    if(sig){
+      plantedAt=Date.now();
+      $("plantLine").textContent="plant: "+myPlant.toBase58();
+      $("s2label").classList.add("done"); $("s2label").textContent="Step 2 · planted ✓";
+      startCooldown();
+    } else { $("plantBtn").disabled=false; }
+  }catch(e){log("plant failed: "+(e.message||e),"bad");$("plantBtn").disabled=false;}
 };
 
+function startCooldown(){
+  $("tendBtn").disabled=true;
+  const tick=()=>{
+    const left=Math.max(0, COOLDOWN_MS-(Date.now()-plantedAt));
+    if(left<=0){
+      $("coolLine").textContent="ready — tend now to mine EG 🌱";
+      $("tendBtn").disabled=false;
+      return;
+    }
+    const s=Math.ceil(left/1000);
+    $("coolLine").textContent=`plant is settling… tend unlocks in ${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+    setTimeout(tick,1000);
+  };
+  tick();
+}
+
 $("tendBtn").onclick=async()=>{
+  $("tendBtn").disabled=true;
   try{
     if(!myPlant){log("plant a seed first","bad");return;}
     const ownerEg=ata(wallet.pk);
-    await send([
+    const before=lastEg;
+    const sig=await send([
       {pubkey:wallet.pk,isSigner:true,isWritable:true},
       {pubkey:CONFIG,isSigner:false,isWritable:false},
       {pubkey:myPlot,isSigner:false,isWritable:true},
@@ -168,9 +232,20 @@ $("tendBtn").onclick=async()=>{
       {pubkey:ATA_PROGRAM,isSigner:false,isWritable:false},
       {pubkey:SystemProgram.programId,isSigner:false,isWritable:false},
     ], D.tend, "tend");
-    log("EG should now be in your wallet!","ok");
-    setTimeout(refreshEg,1400);
-  }catch(e){log("tend failed: "+(e.message||e),"bad");}
+    if(sig){
+      $("s3label").classList.add("done"); $("s3label").textContent="Step 3 · tended ✓";
+      // poll a few times for the balance bump
+      for(let i=0;i<6;i++){ await new Promise(r=>setTimeout(r,1500)); await refreshEg(); if(lastEg>before) break; }
+      if(lastEg>before){ $("egNote").textContent="↑ you just mined "+(lastEg-before).toFixed(2)+" EG (1 base × 1.5 genesis bonus)"; }
+      // restart cooldown for next tend
+      plantedAt=Date.now(); startCooldown();
+    } else { $("tendBtn").disabled=false; }
+  }catch(e){
+    const msg=String(e.message||e);
+    if(msg.match(/0x177a|cooldown|TendCooldown/i)) log("tend: too soon — wait for the cooldown to finish","bad");
+    else log("tend failed: "+msg,"bad");
+    $("tendBtn").disabled=false;
+  }
 };
 </script>
 </body>
