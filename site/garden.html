@@ -309,14 +309,23 @@ function ixTend(owner, plot, plant, regionIdx){
   ]});
 }
 function ixCompost(composter, plot, plant, regionIdx){
+  const composterEg = ataKey(composter);
   return new TransactionInstruction({ programId:PID, data:u8(IX.compost), keys:[
-    {pubkey:composter, isSigner:true, isWritable:true},
-    {pubkey:CONFIG, isSigner:false, isWritable:false},
-    {pubkey:POOL, isSigner:false, isWritable:true},
-    {pubkey:plot, isSigner:false, isWritable:true},
-    {pubkey:plant, isSigner:false, isWritable:true},
-    {pubkey:FEED[regionIdx], isSigner:false, isWritable:false},
-    {pubkey:REGION[regionIdx], isSigner:false, isWritable:false},
+    {pubkey:composter,          isSigner:true,  isWritable:true},
+    {pubkey:CONFIG,             isSigner:false, isWritable:false},
+    {pubkey:POOL,               isSigner:false, isWritable:true},
+    {pubkey:plot,               isSigner:false, isWritable:true},
+    {pubkey:plant,              isSigner:false, isWritable:true},
+    {pubkey:FEED[regionIdx],    isSigner:false, isWritable:false},
+    {pubkey:REGION[regionIdx],  isSigner:false, isWritable:false},
+    {pubkey:EG_CONFIG,          isSigner:false, isWritable:true},
+    {pubkey:EG_MINT,            isSigner:false, isWritable:true},
+    {pubkey:EG_MINT_AUTH,       isSigner:false, isWritable:false},
+    {pubkey:composterEg,        isSigner:false, isWritable:true},
+    {pubkey:TREASURY,           isSigner:false, isWritable:true},
+    {pubkey:TOKEN_PROG,         isSigner:false, isWritable:false},
+    {pubkey:ATA_PROG,           isSigner:false, isWritable:false},
+    {pubkey:SystemProgram.programId, isSigner:false, isWritable:false},
   ]});
 }
 const ERRORS = {
