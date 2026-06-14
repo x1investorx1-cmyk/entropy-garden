@@ -177,13 +177,21 @@ $("plantBtn").onclick=async()=>{
   try{
     if(!myPlot){log("claim a plot first","bad");return;}
     myPlant=pda([te("plant"),myPlot.toBytes(),new Uint8Array([0])]);
+    const ownerEgAta=ata(wallet.pk);
     const sig=await send([
-      {pubkey:wallet.pk,isSigner:true,isWritable:true},
-      {pubkey:CONFIG,isSigner:false,isWritable:false},
-      {pubkey:myPlot,isSigner:false,isWritable:true},
-      {pubkey:myPlant,isSigner:false,isWritable:true},
-      {pubkey:SYSVAR_SLOT_HASHES_PUBKEY,isSigner:false,isWritable:false},
-      {pubkey:SystemProgram.programId,isSigner:false,isWritable:false},
+      {pubkey:wallet.pk,          isSigner:true,  isWritable:true},   // owner
+      {pubkey:CONFIG,             isSigner:false, isWritable:false},   // config
+      {pubkey:myPlot,             isSigner:false, isWritable:true},    // plot
+      {pubkey:myPlant,            isSigner:false, isWritable:true},    // plant (init)
+      {pubkey:SYSVAR_SLOT_HASHES_PUBKEY, isSigner:false, isWritable:false}, // slot_hashes
+      {pubkey:EG_CONFIG,          isSigner:false, isWritable:true},    // eg_config
+      {pubkey:EG_MINT,            isSigner:false, isWritable:true},    // eg_mint
+      {pubkey:EG_MINT_AUTH,       isSigner:false, isWritable:false},   // eg_mint_auth
+      {pubkey:ownerEgAta,         isSigner:false, isWritable:true},    // owner_eg (ATA)
+      {pubkey:TREASURY,           isSigner:false, isWritable:true},    // treasury
+      {pubkey:TOKEN_PROGRAM,      isSigner:false, isWritable:false},   // token_program
+      {pubkey:ATA_PROGRAM,        isSigner:false, isWritable:false},   // associated_token_program
+      {pubkey:SystemProgram.programId, isSigner:false, isWritable:false}, // system_program
     ], cat(D.plant,new Uint8Array([0]),u16le(1)), "plant seed");
     if(sig){
       plantedAt=Date.now();
