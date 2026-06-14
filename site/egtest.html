@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EG Testnet Tester</title>
+<script src="https://unpkg.com/@solana/web3.js@1.95.8/lib/index.iife.min.js"></script>
+<style>
+body{background:#0B100C;color:#E5EADC;font-family:ui-monospace,monospace;max-width:760px;margin:0 auto;padding:40px 24px;line-height:1.6}
+h1{font-weight:400;color:#9FD27E}
+button{background:transparent;color:#9FD27E;border:1px solid #9FD27E;padding:10px 18px;cursor:pointer;font-family:inherit;margin:4px 0}
+button:disabled{color:#555;border-color:#333}
+input{background:#131A13;border:1px solid #243224;color:#E5EADC;padding:8px;font-family:inherit;width:100%;margin:4px 0}
+.box{border:1px solid #243224;padding:18px;margin:14px 0;background:#131A13}
+.log{font-size:13px;white-space:pre-wrap;max-height:300px;overflow:auto;border-top:1px solid #243224;padding-top:10px;margin-top:14px}
+.ok{color:#9FD27E}.bad{color:#C97B4A}.big{font-size:22px;color:#9FD27E}
+label{font-size:12px;color:#AAB59C}
+</style>
+</head>
+<body>
+<h1>🌱 EG Testnet Tester</h1>
+<p style="color:#AAB59C;font-size:13px">Tends a plant on <b>testnet</b> and shows EG minted to your wallet. Make your wallet's RPC = rpc.testnet.x1.xyz</p>
+
+<div class="box">
+  <button id="connectBtn">connect wallet</button>
+  <span id="who" style="margin-left:10px;color:#AAB59C">not connected</span>
+</div>
+
+<div class="box">
+  <div class="big">EG balance: <span id="egBal">—</span></div>
+  <label>updates after each tend</label>
+</div>
+
+<div class="box">
+  <label>Plot address (the plot that owns the plant)</label>
+  <input id="plotAddr" placeholder="paste plot pubkey">
+  <label>Plant address (the plant to tend)</label>
+  <input id="plantAddr" placeholder="paste plant pubkey">
+  <label>Region (0 = Dry Field, 1 = Rainline)</label>
+  <input id="regionIdx" value="0">
+  <button id="tendBtn" disabled>tend → mine EG</button>
+</div>
+
+<div class="log" id="log"></div>
+
+<script>
+const {Connection, PublicKey, Transaction, TransactionInstruction, SystemProgram} = solanaWeb3;
+const RPC = "https://rpc.testnet.x1.xyz";
+const conn = new Connection(RPC, "confirmed");
+const PID = new PublicKey("8gTX3w2mAkKhGip9Mmvhb3gkcETugkfLEvmT4BNTh1By");
+const TOKEN_PROGRAM = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+const ATA_PROGRAM = new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
+const TEND_DISC = [169,80,232,45,188,3,247,112];
+
+// testnet PDAs from init-eg.js output
+const CONFIG = new PublicKey("3uXybAM2mZwWpSmptCUs6xFHQ3UNwzShXgRUGe5XfvJX");
+const EG_CONFIG = new PublicKey("8pMeHLSU3XSTipyeRMcvuD4m5Yav2VrjMtLT5t53poFj");
+const EG_MINT = new PublicKey("EkaYAgWf6mpDCiqcDP9cMbcvKj5MHxCSutPbdSXJcaQ2");
+const EG_MINT_AUTH = new PublicKey("9Wu9Zu7uQ9PaJYhuXjCs4uvnaqAvCLdoVxHZfitJjkcT");
+const TREASURY = new PublicKey("7WrZ9gKMygVBDNi2nk3ibZcc7RS4CeaGQnKb4tYy4hbZ");
+// region/feed PDAs (testnet — derive from seeds)
+function regionPda(i){return PublicKey.findProgramAddressSync([new TextEncoder().encode("region"), new Uint8Array([i,0])],PID)[0];}
+function feedPda(i){return PublicKey.findProgramAddressSync([new TextEncoder().encode("weather"), new Uint8Array([i,0])],PID)[0];}
+
+const $=id=>document.getElementById(id);
+const log=(m,c="")=>{const d=document.createElement("div");d.className=c;d.textContent="› "+m;$("log").prepend(d);};
+
+let wallet=null;
+$("connectBtn").onclick=async()=>{
+  try{
+    const w=window.backpack?.solana??window.backpack;
+    if(!w){log("no Backpack found","bad");return;}
+    const r=await w.connect();
+    wallet={pk:new PublicKey((r?.publicKey??w.publicKey).toString()),
+            sign:tx=>w.signAndSendTransaction(tx)};
+    $("who").textContent=wallet.pk.toBase58().slice(0,8)+"…";
+    $("tendBtn").disabled=false;
+    log("connected: "+wallet.pk.toBase58(),"ok");
+    refreshEg();
+  }catch(e){log("connect failed: "+e.message,"bad");}
+};
+
+function ata(owner){
+  return PublicKey.findProgramAddressSync(
+    [owner.toBytes(), TOKEN_PROGRAM.toBytes(), EG_MINT.toBytes()], ATA_PROGRAM)[0];
+}
+
+async function refreshEg(){
+  if(!wallet)return;
+  try{
+    const a=ata(wallet.pk);
+    const bal=await conn.getTokenAccountBalance(a).catch(()=>null);
+    $("egBal").textContent = bal? bal.value.uiAmountString+" EG" : "0 EG (no account yet)";
+  }catch(e){$("egBal").textContent="—";}
+}
+
+$("tendBtn").onclick=async()=>{
+  try{
+    const plot=new PublicKey($("plotAddr").value.trim());
+    const plant=new PublicKey($("plantAddr").value.trim());
+    const ri=parseInt($("regionIdx").value.trim())||0;
+    const ownerEg=ata(wallet.pk);
+    // account order MUST match the Tend struct exactly
+    const keys=[
+      {pubkey:wallet.pk, isSigner:true, isWritable:true},        // owner
+      {pubkey:CONFIG, isSigner:false, isWritable:false},          // config
+      {pubkey:plot, isSigner:false, isWritable:true},             // plot
+      {pubkey:plant, isSigner:false, isWritable:true},            // plant
+      {pubkey:feedPda(ri), isSigner:false, isWritable:false},     // feed
+      {pubkey:regionPda(ri), isSigner:false, isWritable:false},   // region
+      {pubkey:EG_CONFIG, isSigner:false, isWritable:true},        // eg_config
+      {pubkey:EG_MINT, isSigner:false, isWritable:true},          // eg_mint
+      {pubkey:EG_MINT_AUTH, isSigner:false, isWritable:false},    // eg_mint_auth
+      {pubkey:ownerEg, isSigner:false, isWritable:true},          // owner_eg (ATA)
+      {pubkey:TREASURY, isSigner:false, isWritable:true},         // treasury
+      {pubkey:TOKEN_PROGRAM, isSigner:false, isWritable:false},   // token_program
+      {pubkey:ATA_PROGRAM, isSigner:false, isWritable:false},     // associated_token_program
+      {pubkey:SystemProgram.programId, isSigner:false, isWritable:false}, // system_program
+    ];
+    const ix=new TransactionInstruction({programId:PID, keys, data:Uint8Array.from(TEND_DISC)});
+    const tx=new Transaction().add(ix);
+    tx.feePayer=wallet.pk;
+    tx.recentBlockhash=(await conn.getLatestBlockhash()).blockhash;
+    log("tending — sign in wallet…");
+    const res=await wallet.sign(tx);
+    const sig=res?.signature??res;
+    log("sent: "+String(sig).slice(0,20)+"… confirming…");
+    await conn.confirmTransaction(sig,"confirmed");
+    log("✅ tend confirmed — EG minted!","ok");
+    setTimeout(refreshEg,1200);
+  }catch(e){log("tend failed: "+(e.message||e),"bad");}
+};
+</script>
+</body>
+</html>
