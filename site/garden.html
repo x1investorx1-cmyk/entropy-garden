@@ -545,7 +545,7 @@ async function refreshMine(){
         // build rose SVG (small, inline)
         const rsvg = pd.genome ? rosesvg(pd.genome, dead?0:pd.stage, Number(pd.stress||0n), 90) : "";
         // rose click → full portrait modal
-        const roseClickId = "rc_"+plotKey+"_"+i;
+        const roseClickId = "rc_"+pubkey.toBase58().slice(0,8)+"_"+i;
         cell.innerHTML = `<div style="display:flex;align-items:flex-start;gap:10px">
           <div id="${roseClickId}" style="flex-shrink:0">${rsvg}</div>
           <div style="flex:1;min-width:0">
