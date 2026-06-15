@@ -56,6 +56,7 @@ dialog h3{font-family:var(--disp);font-weight:400;margin-bottom:14px}
   .slot button{min-height:40px}
   dialog{width:calc(100vw - 32px); max-width:none; margin:16px}
 }
+.storm{font-size:11px;margin-top:4px;color:#E0A878;letter-spacing:.05em}
 </style>
 </head>
 <body>
@@ -119,7 +120,8 @@ function ataKey(owner){ return PublicKey.findProgramAddressSync(
   [owner.toBytes(), TOKEN_PROG.toBytes(), EG_MINT.toBytes()], ATA_PROG)[0]; }
 
 const IX = { claim:[125,132,62,56,128,210,150,69], plant:[139,66,41,202,41,145,173,204],
-             tend:[169,80,232,45,188,3,247,112], compost:[150,11,76,97,196,3,122,103] };
+             tend:[169,80,232,45,188,3,247,112], compost:[150,11,76,97,196,3,122,103],
+             harvest:[228,241,31,182,53,169,59,199] };
 const PLOT_DISC = [83,82,6,254,46,4,206,230];
 const REGION_NAME = ["the Dry Field","the Rainline"];
 const $ = id => document.getElementById(id);
@@ -254,7 +256,8 @@ function decPlant(buf){
   const d = dv(buf);
   return { slotIndex:d.getUint8(40), species:d.getUint16(41,true), optimal:d.getUint16(75,true),
     lastEval:d.getBigUint64(85,true), health:d.getUint16(93,true),
-    biomass:d.getBigUint64(95,true), stage:d.getUint8(103) };
+    biomass:d.getBigUint64(95,true), stage:d.getUint8(103),
+    stress:d.getBigUint64(104,true) };
 }
 
 /* ---------- instructions ---------- */
@@ -328,6 +331,27 @@ function ixCompost(composter, plot, plant, regionIdx){
     {pubkey:SystemProgram.programId, isSigner:false, isWritable:false},
   ]});
 }
+
+function ixHarvest(owner, plot, plant, regionIdx){
+  const ownerEg = ataKey(owner);
+  return new TransactionInstruction({ programId:PID, data:u8(IX.harvest), keys:[
+    {pubkey:owner,              isSigner:true,  isWritable:true},
+    {pubkey:CONFIG,             isSigner:false, isWritable:false},
+    {pubkey:POOL,               isSigner:false, isWritable:true},
+    {pubkey:plot,               isSigner:false, isWritable:true},
+    {pubkey:plant,              isSigner:false, isWritable:true},
+    {pubkey:FEED[regionIdx],    isSigner:false, isWritable:false},
+    {pubkey:REGION[regionIdx],  isSigner:false, isWritable:false},
+    {pubkey:EG_CONFIG,          isSigner:false, isWritable:true},
+    {pubkey:EG_MINT,            isSigner:false, isWritable:true},
+    {pubkey:EG_MINT_AUTH,       isSigner:false, isWritable:false},
+    {pubkey:ownerEg,            isSigner:false, isWritable:true},
+    {pubkey:TREASURY,           isSigner:false, isWritable:true},
+    {pubkey:TOKEN_PROG,         isSigner:false, isWritable:false},
+    {pubkey:ATA_PROG,           isSigner:false, isWritable:false},
+    {pubkey:SystemProgram.programId, isSigner:false, isWritable:false},
+  ]});
+}
 const ERRORS = {
   "0x1770":"the garden is paused",
   "0x1771":"that's not your plot",
@@ -361,6 +385,21 @@ async function send(ix, label){
     log(label+" sent: "+String(sig).slice(0,16)+"… confirming…");
     await conn.confirmTransaction(sig, "confirmed");
     log(label+" confirmed ✓","ok");
+    // Storm-Chaser: on a harvest, read the on-chain log and explain the bonus
+    if(label.startsWith("harvest")){
+      try{
+        const tx = await conn.getTransaction(sig,{maxSupportedTransactionVersion:0,commitment:"confirmed"});
+        const lg = (tx?.meta?.logMessages||[]).find(l=>l.includes("storm-harvest"));
+        if(lg){
+          const m = lg.match(/(\d+) total \(base (\d+) \+ storm bonus (\d+)\).*stress survived: (\d+)/);
+          if(m){
+            const tot=Number(m[1])/1e9, base=Number(m[2])/1e9, bonus=Number(m[3])/1e9, st=m[4];
+            if(bonus>0) log(`🌩️ storm-harvest: ${tot.toFixed(2)} EG = ${base.toFixed(2)} base + ${bonus.toFixed(2)} storm bonus (survived ${st} stress)`,"ok");
+            else log(`harvested ${tot.toFixed(2)} EG (calm-grown — no storm bonus)`,"ok");
+          }
+        }
+      }catch(e){}
+    }
     setTimeout(()=>{refreshMine(); refreshGlobal();}, 800);
   }catch(e){ log(label+": "+friendly(e.message||e),"bad"); }
 }
@@ -415,10 +454,28 @@ async function refreshMine(){
         cell.classList.add("alive");
         const hpPct = Math.round(pd.health/10);
         const dead = pd.health===0;
+        const flowering = pd.stage>=5;
+        // Storm-Chaser clue: stress survived -> projected harvest multiplier (1 + stress/25000, cap 3x)
+        const stressNum = Number(pd.stress);
+        const stormMult = Math.min(3, 1 + stressNum/25000);
+        // subtle clue while growing: storm marks that intensify with stress
+        let stormClue = "";
+        if(stressNum > 2000 && !dead){
+          const drops = stormMult>=3 ? "🌩️🌩️🌩️" : stormMult>=2 ? "🌩️🌩️" : "🌩️";
+          stormClue = `<div class="storm" title="this plant is weathering storms — harvest pays more">${drops} <span style="opacity:.7">weathered</span></div>`;
+        }
         cell.innerHTML = `<span class="glyph">${dead?"☠":STAGE[pd.stage]||"·"}</span>
           ${dead?"dead":"stage "+pd.stage} · ❤${pd.health}
           <span class="hp"><i class="${hpPct<30?'low':''}" style="width:${hpPct}%"></i></span>
-          optimal sky: ${pd.optimal} bps`;
+          optimal sky: ${pd.optimal} bps${stormClue}`;
+        if(flowering && !dead){
+          // ready to harvest — show the storm bonus explicitly here
+          const hb = document.createElement("button");
+          hb.textContent = stormMult>1.05 ? `harvest · ${stormMult.toFixed(1)}× storm bonus` : "harvest";
+          hb.style.borderColor = "#C97B4A"; hb.style.color = "#E0A878";
+          hb.onclick = () => send(ixHarvest(active.publicKey,pubkey,pd.key,regionIdx), "harvest slot "+i);
+          cell.appendChild(hb);
+        }
         const b = document.createElement("button");
         b.textContent = dead ? "compost" : "tend";
         b.onclick = () => send(dead ? ixCompost(active.publicKey,pubkey,pd.key,regionIdx)
