@@ -542,17 +542,14 @@ async function refreshMine(){
           const drops = stormMult>=3 ? "🌩️🌩️🌩️" : stormMult>=2 ? "🌩️🌩️" : "🌩️";
           stormClue = `<div class="storm" title="this plant is weathering storms — harvest pays more">${drops} <span style="opacity:.7">weathered</span></div>`;
         }
-        // compact view: small rose thumbnail + link to rose page
-        const rsvg = pd.genome ? rosesvg(pd.genome, dead?0:pd.stage, Number(pd.stress||0n), 64) : "";
-        cell.innerHTML = `<div style="display:flex;align-items:center;gap:10px">
-          <a href="/rose.html" title="tend your rose" style="flex-shrink:0;display:block;opacity:${dead?0.4:1}">${rsvg}</a>
-          <div style="flex:1;min-width:0;font-size:12px">
-            <span class="glyph" style="font-size:14px">${dead?"☠":STAGE[pd.stage]||"·"}</span>
-            <span style="color:var(--ash)"> stage ${pd.stage}</span>
-            <span class="hp" style="margin:3px 0"><i class="${hpPct<30?'low':''}" style="width:${hpPct}%"></i></span>
-            ${stormClue}
-            <a href="/rose.html" style="display:block;margin-top:4px;font-size:11px;color:var(--leaf)">tend your rose →</a>
-          </div>
+        // compact view: rose thumbnail on top, info below (stacks cleanly in narrow cells)
+        const rsvg = pd.genome ? rosesvg(pd.genome, dead?0:pd.stage, Number(pd.stress||0n), 72) : "";
+        cell.innerHTML = `<div style="text-align:center">
+          <a href="/rose.html" title="tend your rose" style="display:block;opacity:${dead?0.4:1}">${rsvg}</a>
+          <div style="font-size:11px;color:var(--ash);margin-top:2px">${dead?"☠ fallen":"stage "+pd.stage}</div>
+          <span class="hp" style="margin:4px auto;max-width:80%"><i class="${hpPct<30?'low':''}" style="width:${hpPct}%"></i></span>
+          ${stormClue}
+          <a href="/rose.html" style="display:block;margin-top:4px;font-size:11px;color:var(--leaf)">tend →</a>
         </div>`;
         if(flowering && !dead){
           // ready to harvest — show the storm bonus explicitly here

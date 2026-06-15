@@ -476,36 +476,23 @@ function buildRoseCard(plotPk,plotData,plantPk,plantData,regionIdx,bps){
 }
 
 /* ── main loader ──────────────────────────────────────────────── */
-const PLOT_DISC=Array.from(new Uint8Array(require&&typeof require!=="undefined"?[]:[]));
-// compute plot discriminator in-browser
-async function getPlotDisc(){
-  const enc=new TextEncoder();
-  const data=enc.encode("account:Plot");
-  const hash=await crypto.subtle.digest("SHA-256",data);
-  return new Uint8Array(hash).slice(0,8);
-}
+const PLOT_DISC=[83,82,6,254,46,4,206,230];
 
 async function loadRoses(){
   if(!active){$("gallery").innerHTML="";return;}
   $("gallery").innerHTML=`<div style="padding:40px 0;text-align:center;color:var(--ash);grid-column:1/-1">loading your roses…</div>`;
 
   try{
-    const[feedInfos,disc]=await Promise.all([
-      conn.getMultipleAccountsInfo([FEED[0],FEED[1]]),
-      getPlotDisc()
-    ]);
+    const feedInfos=await conn.getMultipleAccountsInfo([FEED[0],FEED[1]]);
     const bps=[
       readWeatherBps(feedInfos[0]?.data),
       readWeatherBps(feedInfos[1]?.data)
     ];
-    const b58disc=solanaWeb3.bs58?solanaWeb3.bs58.encode(disc):btoa(String.fromCharCode(...disc));
-    const allPlots=await conn.getProgramAccounts(PID,{
-      filters:[{memcmp:{offset:0,bytes:b58disc}}]
-    });
-    // filter to this wallet's plots
-    const myPlots=allPlots.filter(({account})=>{
-      try{const owner=new PublicKey(account.data.slice(8,40));return owner.equals(active.pk);}catch(e){return false;}
-    });
+    // fetch only THIS wallet's plots: filter by discriminator + owner at offset 8
+    const myPlots=await conn.getProgramAccounts(PID,{filters:[
+      {memcmp:{offset:0, bytes: base58(Uint8Array.from(PLOT_DISC))}},
+      {memcmp:{offset:8, bytes: active.pk.toBase58()}},
+    ]});
 
     const cards=[];
     for(const{pubkey,account}of myPlots){
