@@ -723,7 +723,16 @@ pub fn harvest(ctx: Context<Harvest>) -> Result<()> {
         )?;
     }
     if !ctx.accounts.eg_config.paused {
-        let amount = ctx.accounts.eg_config.reward_amount(crate::eg::REWARD_HARVEST, now);
+        // Storm-Chaser bonus: the richest EG grows at the edge of bad weather.
+        // base harvest, then scale up smoothly by cumulative_stress survived, capped at 3x.
+        let base = ctx.accounts.eg_config.reward_amount(crate::eg::REWARD_HARVEST, now);
+        // bonus = base * stress / STRESS_DIVISOR, total capped at 3x base.
+        let stress = plant.cumulative_stress;
+        let bonus = (base as u128)
+            .saturating_mul(stress as u128)
+            / (crate::eg::STORM_STRESS_DIVISOR as u128);
+        let bonus = bonus.min(base as u128 * 2) as u64; // cap bonus at +2x (total 3x)
+        let amount = base.saturating_add(bonus);
         if amount > 0 {
             let bump = ctx.accounts.eg_config.mint_authority_bump;
             let seeds: &[&[u8]] = &[b"eg_mint_auth", &[bump]];
@@ -742,7 +751,7 @@ pub fn harvest(ctx: Context<Harvest>) -> Result<()> {
             )?;
             ctx.accounts.eg_config.total_minted =
                 ctx.accounts.eg_config.total_minted.saturating_add(amount);
-            msg!("EG harvest reward: {} | cumulative stress: {}", amount, plant.cumulative_stress);
+            msg!("EG storm-harvest: {} total (base {} + storm bonus {}) | stress survived: {}", amount, base, bonus, plant.cumulative_stress);
         }
     }
     Ok(())
