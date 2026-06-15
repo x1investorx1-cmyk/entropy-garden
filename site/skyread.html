@@ -183,10 +183,29 @@ async function buildWalletOpts(){
 function onWalletConnected(name){
   $("who").textContent=wallet.pk.toBase58().slice(0,6)+"…";
   log("connected: "+name,"ok");
+  try{ localStorage.setItem("eg_wallet", name); }catch(e){}
   refreshEg(); refreshWeather();
   setInterval(refreshWeather,6000); setInterval(refreshEg,8000);
   document.getElementById("walletDialog").close();
 }
+
+async function tryAutoConnect(){
+  let saved=null;
+  try{ saved=localStorage.getItem("eg_wallet"); }catch(e){}
+  if(!saved) return;
+  for(let attempt=0; attempt<8; attempt++){
+    try{ window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{register:registerWallet}})); }catch(e){}
+    if(window.x1wallet && !wallets.has("X1 Wallet")) try{ registerWallet(window.x1wallet); }catch(e){}
+    if(wallets.has(saved)){
+      try{ wallet=await connectStandard(wallets.get(saved)); onWalletConnected(saved); return; }catch(e){ return; }
+    }
+    if(saved==="Backpack" && (window.backpack||window.xnft?.solana)){
+      try{ wallet=await connectBackpack(); onWalletConnected("Backpack"); return; }catch(e){ return; }
+    }
+    await new Promise(r=>setTimeout(r,250));
+  }
+}
+window.addEventListener("load", ()=>{ setTimeout(tryAutoConnect, 300); });
 $("connectBtn").onclick=async()=>{
   const opts=await buildWalletOpts();
   const list=document.getElementById("walletList"); list.innerHTML="";

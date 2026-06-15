@@ -221,6 +221,7 @@ try{ window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{r
 let active = null; // {name, publicKey, signAndSend(tx), disconnect?}
 async function disconnectActive(){
   try{ if(active?.disconnect) await active.disconnect(); }catch(e){}
+  try{ localStorage.removeItem("eg_wallet"); }catch(e){}
   active=null;
   $("who").textContent="no wallet connected";
   $("disconnectBtn").style.display="none";
@@ -313,6 +314,7 @@ function onConnected(){
   $("who").textContent = active.name+" · "+a.slice(0,4)+"…"+a.slice(-4);
   $("disconnectBtn").style.display="";
   $("claim0").disabled = $("claim1").disabled = false;
+  try{ localStorage.setItem("eg_wallet", active.name); }catch(e){}
   refreshMine();
 }
 
@@ -339,6 +341,26 @@ function decPlant(buf){
 }
 
 /* ---------- instructions ---------- */
+
+/* ── silent auto-reconnect across pages ─────────────────────────── */
+async function tryAutoConnect(){
+  let saved=null;
+  try{ saved=localStorage.getItem("eg_wallet"); }catch(e){}
+  if(!saved) return;
+  for(let attempt=0; attempt<8; attempt++){
+    try{ window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{register:registerWallet}})); }catch(e){}
+    if(window.x1wallet && !wallets.has("X1 Wallet")) try{ registerWallet(window.x1wallet); }catch(e){}
+    if(wallets.has(saved)){
+      try{ await disconnectActive(); active=await connectStandard(wallets.get(saved)); onConnected(); return; }catch(e){ return; }
+    }
+    if(saved==="Backpack" && (window.backpack||window.xnft?.solana)){
+      try{ await disconnectActive(); active=await connectBackpack(); onConnected(); return; }catch(e){ return; }
+    }
+    await new Promise(r=>setTimeout(r,250));
+  }
+}
+window.addEventListener("load", ()=>{ setTimeout(tryAutoConnect, 300); });
+
 function ixClaim(owner, regionIdx, totalPlots){
   const [plot] = PublicKey.findProgramAddressSync([seedBytes("plot"), owner.toBytes(), u32le(totalPlots)], PID);
   return [plot, new TransactionInstruction({ programId:PID, data:u8(IX.claim), keys:[

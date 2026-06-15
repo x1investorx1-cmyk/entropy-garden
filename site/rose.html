@@ -239,6 +239,7 @@ function onConnected(name){
   $("who").textContent=active.pk.toBase58().slice(0,6)+"…"+active.pk.toBase58().slice(-4);
   $("connectBtn").textContent="connected · "+name;
   log("connected: "+name+" · "+active.pk.toBase58().slice(0,6)+"…","ok");
+  try{ localStorage.setItem("eg_wallet", name); }catch(e){}
   walletDialog.close();
   loadRoses();
 }
@@ -262,6 +263,28 @@ $("connectBtn").onclick=async()=>{
   }
   walletDialog.showModal();
 };
+
+
+/* ── silent auto-reconnect across pages ─────────────────────────── */
+async function tryAutoConnect(){
+  let saved=null;
+  try{ saved=localStorage.getItem("eg_wallet"); }catch(e){}
+  if(!saved) return;
+  // give wallet extensions a moment to register via wallet-standard
+  for(let attempt=0; attempt<8; attempt++){
+    try{window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{register:registerWallet}}));}catch(e){}
+    if(window.x1wallet&&!wallets.has("X1 Wallet")) try{registerWallet(window.x1wallet);}catch(e){}
+    // wallet-standard match by saved name
+    if(wallets.has(saved)){
+      try{ active=await connectStandard(wallets.get(saved)); onConnected(saved); return; }catch(e){ return; }
+    }
+    if(saved==="Backpack" && (window.backpack||window.xnft?.solana)){
+      try{ active=await connectBackpack(); onConnected("Backpack"); return; }catch(e){ return; }
+    }
+    await new Promise(r=>setTimeout(r,250)); // wait and retry — extension may inject late
+  }
+}
+window.addEventListener("load", ()=>{ setTimeout(tryAutoConnect, 300); });
 
 /* ── data ─────────────────────────────────────────────────────── */
 function decPlot(buf){
