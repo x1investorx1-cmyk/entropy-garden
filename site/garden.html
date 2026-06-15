@@ -542,30 +542,18 @@ async function refreshMine(){
           const drops = stormMult>=3 ? "🌩️🌩️🌩️" : stormMult>=2 ? "🌩️🌩️" : "🌩️";
           stormClue = `<div class="storm" title="this plant is weathering storms — harvest pays more">${drops} <span style="opacity:.7">weathered</span></div>`;
         }
-        // build rose SVG (small, inline)
-        const rsvg = pd.genome ? rosesvg(pd.genome, dead?0:pd.stage, Number(pd.stress||0n), 90) : "";
-        // rose click → full portrait modal
-        const roseClickId = "rc_"+pubkey.toBase58().slice(0,8)+"_"+i;
-        cell.innerHTML = `<div style="display:flex;align-items:flex-start;gap:10px">
-          <div id="${roseClickId}" style="flex-shrink:0">${rsvg}</div>
-          <div style="flex:1;min-width:0">
-            <span class="glyph">${dead?"☠":STAGE[pd.stage]||"·"}</span>
-            ${dead?"dead":"stage "+pd.stage} · ❤${pd.health}
-            <span class="hp"><i class="${hpPct<30?'low':''}" style="width:${hpPct}%"></i></span>
-            <div style="font-size:11px;color:var(--ash);margin-top:3px">optimal: ${pd.optimal} bps</div>
+        // compact view: small rose thumbnail + link to rose page
+        const rsvg = pd.genome ? rosesvg(pd.genome, dead?0:pd.stage, Number(pd.stress||0n), 64) : "";
+        cell.innerHTML = `<div style="display:flex;align-items:center;gap:10px">
+          <a href="/rose.html" title="tend your rose" style="flex-shrink:0;display:block;opacity:${dead?0.4:1}">${rsvg}</a>
+          <div style="flex:1;min-width:0;font-size:12px">
+            <span class="glyph" style="font-size:14px">${dead?"☠":STAGE[pd.stage]||"·"}</span>
+            <span style="color:var(--ash)"> stage ${pd.stage}</span>
+            <span class="hp" style="margin:3px 0"><i class="${hpPct<30?'low':''}" style="width:${hpPct}%"></i></span>
             ${stormClue}
+            <a href="/rose.html" style="display:block;margin-top:4px;font-size:11px;color:var(--leaf)">tend your rose →</a>
           </div>
         </div>`;
-        // attach click handler for full rose portrait
-        if(pd.genome){
-          const rEl = document.getElementById(roseClickId);
-          if(rEl) rEl.onclick = ()=>{
-            document.getElementById("rosePortrait").innerHTML = rosesvg(pd.genome, dead?0:pd.stage, Number(pd.stress||0n), 240);
-            const stormTxt = Number(pd.stress||0n)>5000 ? ` · weathered (${(Number(pd.stress||0n)/1000).toFixed(0)}k stress)` : "";
-            document.getElementById("roseCaption").textContent = `stage ${pd.stage} · optimal ${pd.optimal} bps${stormTxt}`;
-            document.getElementById("roseDialog").showModal();
-          };
-        }
         if(flowering && !dead){
           // ready to harvest — show the storm bonus explicitly here
           const hb = document.createElement("button");

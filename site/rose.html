@@ -1,0 +1,546 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your Roses — Entropy Garden</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌹</text></svg>">
+<style>
+:root{
+  --ink:#0B100C;--bone:#EFF2E8;--ash:#AAB59C;--leaf:#9FD27E;
+  --panel:#131A13;--line:#243224;--ember:#C97B4A;--thrive:#7eca5a;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--ink);color:var(--bone);font-family:ui-monospace,monospace;min-height:100vh}
+a{color:var(--ash);text-decoration:none}
+a:hover{color:var(--bone)}
+nav{padding:18px 24px;font-size:12px;border-bottom:1px solid var(--line);display:flex;gap:20px;flex-wrap:wrap}
+h1{font-family:Georgia,serif;font-weight:400;font-size:28px;color:var(--bone);margin-bottom:4px}
+h1 em{color:var(--leaf);font-style:italic}
+.sub{color:var(--ash);font-size:13px}
+header{padding:32px 24px 20px;border-bottom:1px solid var(--line)}
+.eg-badge{float:right;font-size:13px;color:var(--leaf)}
+.connect-bar{padding:16px 24px;display:flex;gap:12px;align-items:center;border-bottom:1px solid var(--line)}
+button{background:transparent;color:var(--leaf);border:1px solid var(--leaf);padding:10px 16px;cursor:pointer;font-family:inherit;font-size:13px;min-height:40px}
+button:disabled{color:#444;border-color:#2a3a2a;cursor:not-allowed}
+button:hover:not(:disabled){background:var(--leaf);color:var(--ink)}
+.quiet{color:var(--ash);border-color:var(--line)}
+.quiet:hover{background:var(--line);color:var(--bone)}
+/* gallery */
+#gallery{padding:24px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}
+.rose-card{background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden;transition:border-color .2s}
+.rose-card:hover{border-color:#3a5a3a}
+.rose-card.flowering{border-color:#C97B4A}
+.rose-portrait{display:flex;justify-content:center;padding:20px 0 8px;cursor:pointer;position:relative}
+.rose-portrait svg{transition:transform .3s}
+.rose-portrait:hover svg{transform:scale(1.05)}
+.stage-pip{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:5px}
+.pip{width:7px;height:7px;border-radius:50%;background:var(--line);transition:background .3s}
+.pip.filled{background:var(--leaf)}
+.pip.stress{background:var(--ember)}
+.rose-info{padding:12px 16px;border-top:1px solid var(--line)}
+.rose-name{font-size:15px;font-weight:500;color:var(--bone);margin-bottom:2px}
+.rose-meta{font-size:11px;color:var(--ash);margin-bottom:8px}
+.health-bar{height:4px;background:var(--line);border-radius:2px;margin-bottom:10px}
+.health-fill{height:100%;border-radius:2px;background:var(--leaf);transition:width .5s}
+.health-fill.low{background:var(--ember)}
+.weather-ctx{font-size:11px;padding:6px 10px;border-radius:3px;margin-bottom:10px;border:1px solid var(--line)}
+.weather-ctx.happy{color:var(--thrive);border-color:#2a5a2a;background:#0d1f0d}
+.weather-ctx.struggle{color:var(--ember);border-color:#3a2a1a;background:#1a0f05}
+.weather-ctx.neutral{color:var(--ash)}
+.storm-badge{font-size:11px;color:var(--ember);margin-bottom:8px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.actions button{flex:1;font-size:12px;padding:8px 10px;min-height:36px}
+.harvest-btn{color:var(--ember);border-color:var(--ember)}
+.harvest-btn:hover{background:var(--ember);color:var(--ink)}
+/* empty state */
+#empty{display:none;text-align:center;padding:80px 24px;color:var(--ash)}
+#empty h2{font-weight:400;font-size:20px;color:var(--bone);margin-bottom:12px}
+/* log */
+#log{position:fixed;bottom:0;left:0;right:0;background:#060c06;border-top:1px solid var(--line);padding:8px 16px;font-size:11px;color:var(--ash);max-height:80px;overflow-y:auto;z-index:10}
+.ok{color:var(--leaf)}.bad{color:var(--ember)}
+/* wallet dialog */
+dialog{background:var(--panel);color:var(--bone);border:1px solid var(--line);padding:26px;max-width:380px;font-family:inherit}
+dialog::backdrop{background:rgba(5,8,5,.8)}
+dialog h3{font-weight:400;margin-bottom:14px}
+.wopt{display:block;width:100%;text-align:left;margin-bottom:10px;padding:12px 16px;font-size:14px}
+@media(max-width:600px){
+  #gallery{grid-template-columns:1fr}
+  nav{gap:12px}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <a href="/">← observatory</a>
+  <a href="/map.html">the grid map</a>
+  <a href="/skyread-mainnet.html">🌥️ read the sky</a>
+  <a href="/garden.html">plot manager →</a>
+</nav>
+
+<header>
+  <span class="eg-badge">EG: <b id="egBal">—</b></span>
+  <h1>Your <em>roses</em></h1>
+  <p class="sub">Every living plant is a rose. Each one is unique — grown from its on-chain genome, shaped by the weather it survived.</p>
+</header>
+
+<div class="connect-bar">
+  <button id="connectBtn">connect wallet</button>
+  <span id="who" style="color:var(--ash);font-size:13px">not connected</span>
+</div>
+
+<div id="gallery"></div>
+<div id="empty"><h2>No living plants yet</h2><p>Go to <a href="/garden.html" style="color:var(--leaf)">your garden</a> to claim a plot and plant a seed — then come back to tend your rose.</p></div>
+
+<div id="log"></div>
+
+<dialog id="walletDialog">
+  <h3>Connect wallet</h3>
+  <div id="walletList"></div>
+  <p style="color:var(--ash);font-size:12px;margin-top:10px">X1 Wallet and any Wallet Standard wallet set to X1 Mainnet will appear here.</p>
+  <button class="quiet" onclick="walletDialog.close()" style="margin-top:8px">cancel</button>
+</dialog>
+
+<script src="https://unpkg.com/@solana/web3.js@1.95.8/lib/index.iife.min.js"></script>
+<script>
+const {Connection,PublicKey,Transaction,TransactionInstruction,SystemProgram,SYSVAR_SLOT_HASHES_PUBKEY}=solanaWeb3;
+const RPC="https://rpc.mainnet.x1.xyz";
+const conn=new Connection(RPC,"confirmed");
+const PID=new PublicKey("8gTX3w2mAkKhGip9Mmvhb3gkcETugkfLEvmT4BNTh1By");
+const TOKEN_PROG=new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+const ATA_PROG=new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
+const CONFIG=new PublicKey("3uXybAM2mZwWpSmptCUs6xFHQ3UNwzShXgRUGe5XfvJX");
+const POOL=new PublicKey("9fXEHt9ZUvjb2QhHQ26MqGcUKmZakbMLt5oygrQwgzBb");
+const REGION=[new PublicKey("F5bTy6FQbUxN8S9MciG9vEcatFZqAPWAYobnUEd4vcqc"),new PublicKey("BSbYnXJ6YoKTjez3toMzioYFR44dUW54sV6kndsv8VFi")];
+const FEED=[new PublicKey("7ciMwptribaYxvAuG1De3xvDc9AKyw3AiRVavE7brcN7"),new PublicKey("7kz8hxdRA2ejqKk2KxyKh4KTg17htVAybvXC72yiQ2v7")];
+const EG_CONFIG=new PublicKey("8pMeHLSU3XSTipyeRMcvuD4m5Yav2VrjMtLT5t53poFj");
+const EG_MINT=new PublicKey("EkaYAgWf6mpDCiqcDP9cMbcvKj5MHxCSutPbdSXJcaQ2");
+const EG_MINT_AUTH=new PublicKey("9Wu9Zu7uQ9PaJYhuXjCs4uvnaqAvCLdoVxHZfitJjkcT");
+const TREASURY=new PublicKey("7WrZ9gKMygVBDNi2nk3ibZcc7RS4CeaGQnKb4tYy4hbZ");
+const REGION_NAME=["the Dry Field","the Rainline"];
+const STAGE=["·","𖧧","𖥧","𖥧𖧧","❀","✿"];
+const IX={tend:[169,80,232,45,188,3,247,112],compost:[150,11,76,97,196,3,122,103],harvest:[228,241,31,182,53,169,59,199]};
+const te=s=>new TextEncoder().encode(s);
+const pda=s=>PublicKey.findProgramAddressSync(s,PID)[0];
+function ataKey(o){return PublicKey.findProgramAddressSync([o.toBytes(),TOKEN_PROG.toBytes(),EG_MINT.toBytes()],ATA_PROG)[0];}
+function dv(buf){return new DataView(buf.buffer??buf);}
+const $=id=>document.getElementById(id);
+const log=(m,c="")=>{const d=document.createElement("div");d.className=c;d.textContent="› "+m;$("log").prepend(d);};
+
+/* ── rose SVG ─────────────────────────────────────────────────── */
+function rosesvg(genome,stage,stress,size=200){
+  const g=genome;
+  const hueBase=(g[0]*1.8)%360;
+  const hue=(hueBase*0.4+(g[1]%3)*30+340)%360;
+  const sat=55+(g[2]%35),light=38+(g[3]%22);
+  const petalCount=5+(g[4]%3),stemCurve=(g[6]%20)-10;
+  const weathered=Math.min(1,stress/400000);
+  const edgeDark=Math.round(weathered*15),droopAngle=weathered*8;
+  const petal=`hsl(${hue},${sat}%,${light}%)`;
+  const petalDark=`hsl(${hue},${sat+10}%,${light-edgeDark-12}%)`;
+  const petalLight=`hsl(${hue},${sat-15}%,${light+18}%)`;
+  const leafCol=`hsl(${100+(g[7]%40)},${45+(g[8]%30)}%,${22+(g[9]%18)}%)`;
+  const stemCol=`hsl(${105+(g[10]%20)},${35+(g[11]%20)}%,${18+(g[12]%12)}%)`;
+  const cx=size/2,cy=size*0.52;
+  const sc=size/120;
+  function ppth(angle,rO,rI){
+    const rad=angle*Math.PI/180;
+    const tx=cx+Math.cos(rad)*rO,ty=cy+Math.sin(rad)*rO;
+    const s1=(angle+90)*Math.PI/180,s2=(angle-90)*Math.PI/180;
+    const w=rI*0.55;
+    const c1x=cx+Math.cos(s1)*w+Math.cos(rad)*rO*0.5,c1y=cy+Math.sin(s1)*w+Math.sin(rad)*rO*0.5;
+    const c2x=cx+Math.cos(s2)*w+Math.cos(rad)*rO*0.5,c2y=cy+Math.sin(s2)*w+Math.sin(rad)*rO*0.5;
+    return `M ${cx} ${cy} C ${c1x} ${c1y},${tx} ${ty},${tx} ${ty} C ${tx} ${ty},${c2x} ${c2y},${cx} ${cy} Z`;
+  }
+  let p=[];
+  p.push(`<line x1="${cx+stemCurve}" y1="${cy}" x2="${cx}" y2="${cy+size*0.42}" stroke="${stemCol}" stroke-width="${3.5*sc}" stroke-linecap="round"/>`);
+  if(stage>=1){
+    const lx=cx+stemCurve*0.5,ly=cy+size*0.22;
+    p.push(`<path d="M ${lx} ${ly} Q ${lx-22*sc} ${ly-8*sc} ${lx-30*sc} ${ly+10*sc} Q ${lx-14*sc} ${ly+8*sc} ${lx} ${ly} Z" fill="${leafCol}" opacity="0.9"/>`);
+    if(stage>=2) p.push(`<path d="M ${lx} ${ly} Q ${lx+22*sc} ${ly-8*sc} ${lx+30*sc} ${ly+10*sc} Q ${lx+14*sc} ${ly+8*sc} ${lx} ${ly} Z" fill="${leafCol}" opacity="0.8"/>`);
+  }
+  if(stage===0){
+    p.push(`<ellipse cx="${cx}" cy="${cy-8*sc}" rx="${7*sc}" ry="${12*sc}" fill="${petal}"/>`);
+    p.push(`<path d="M ${cx} ${cy+4*sc} Q ${cx-6*sc} ${cy-2*sc} ${cx} ${cy-18*sc} Q ${cx+6*sc} ${cy-2*sc} ${cx} ${cy+4*sc}" fill="${petalDark}" opacity="0.6"/>`);
+    p.push(`<path d="M ${cx} ${cy+3*sc} Q ${cx-10*sc} ${cy-4*sc} ${cx-4*sc} ${cy-14*sc}" stroke="${leafCol}" stroke-width="1.5" fill="none"/>`);
+    p.push(`<path d="M ${cx} ${cy+3*sc} Q ${cx+10*sc} ${cy-4*sc} ${cx+4*sc} ${cy-14*sc}" stroke="${leafCol}" stroke-width="1.5" fill="none"/>`);
+  } else {
+    const vp=stage===1?2:stage===2?3:stage===3?4:stage===4?petalCount:petalCount+1;
+    const oR=size*(0.22+stage*0.025);
+    for(let i=0;i<Math.min(vp,petalCount);i++){
+      const angle=-90+droopAngle+(i/petalCount)*360;
+      const op=stage>=3?1:0.65;
+      p.push(`<path d="${ppth(angle,oR*op,oR*0.55*op)}" fill="${petal}" stroke="${petalDark}" stroke-width="0.8" opacity="0.92"/>`);
+    }
+    if(stage>=4){
+      const ip=Math.ceil(petalCount*0.6);
+      for(let i=0;i<ip;i++){
+        const angle=-90+droopAngle+22+(i/ip)*360;
+        p.push(`<path d="${ppth(angle,oR*0.58,oR*0.32)}" fill="${petalLight}" stroke="${petalDark}" stroke-width="0.5" opacity="0.88"/>`);
+      }
+    }
+    if(stage>=3){
+      const cs=oR*0.22;
+      p.push(`<circle cx="${cx}" cy="${cy}" r="${cs}" fill="hsl(${hue-10},${sat}%,${light-8}%)"/>`);
+      if(stage>=5) p.push(`<circle cx="${cx}" cy="${cy}" r="${cs*0.5}" fill="hsl(45,80%,65%)"/>`);
+    }
+    p.push(`<path d="M ${cx} ${cy+4*sc} Q ${cx-12*sc} ${cy+2*sc} ${cx-8*sc} ${cy-10*sc}" stroke="${leafCol}" stroke-width="1.5" fill="none" opacity="0.6"/>`);
+    p.push(`<path d="M ${cx} ${cy+4*sc} Q ${cx+12*sc} ${cy+2*sc} ${cx+8*sc} ${cy-10*sc}" stroke="${leafCol}" stroke-width="1.5" fill="none" opacity="0.6"/>`);
+  }
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">${p.join('')}</svg>`;
+}
+
+/* ── wallet ───────────────────────────────────────────────────── */
+const wallets=new Map();
+function registerWallet(w){
+  try{
+    if(!w?.features?.["standard:connect"]) return;
+    const chains=w.chains||[];
+    const ok=chains.length===0||chains.some(c=>{const s=String(c);return s.startsWith("solana")||s.startsWith("x1");});
+    if(ok) wallets.set(w.name,w);
+  }catch(e){}
+}
+window.addEventListener("wallet-standard:register-wallet",ev=>ev.detail&&registerWallet(ev.detail));
+try{window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{register:registerWallet}}));}catch(e){}
+function base58(bytes){const A="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";let x=BigInt(0);for(const b of bytes)x=(x<<8n)+BigInt(b);let s="";while(x>0n){s=A[Number(x%58n)]+s;x/=58n;}return s||"1";}
+async function connectStandard(w){
+  const res=await w.features["standard:connect"].connect();
+  const acct=res.accounts[0];
+  const pk=new PublicKey(acct.publicKey??acct.address);
+  const sast=w.features["solana:signAndSendTransaction"];
+  const st=w.features["solana:signTransaction"];
+  const allChains=acct.chains?.length?acct.chains:(w.chains||[]);
+  const chain=allChains.find(c=>String(c).startsWith("x1"))??allChains[0]??"solana:mainnet";
+  return {pk,sign:async tx=>{
+    tx.feePayer=pk;tx.recentBlockhash=(await conn.getLatestBlockhash()).blockhash;
+    if(sast){const ser=tx.serialize({requireAllSignatures:false,verifySignatures:false});
+      const[out]=await sast.signAndSendTransaction({transaction:ser,account:acct,chain});
+      return typeof out.signature==="string"?out.signature:base58(out.signature);}
+    const[signed]=await st.signTransaction({transaction:tx.serialize({requireAllSignatures:false,verifySignatures:false}),account:acct});
+    return conn.sendRawTransaction(signed.signedTransaction);
+  }};
+}
+async function connectBackpack(){
+  const bp=window.backpack?.solana??window.backpack??window.xnft?.solana;
+  if(!bp) throw new Error("Backpack not found");
+  const resp=await bp.connect();
+  const pk=new PublicKey((resp?.publicKey??bp.publicKey).toString());
+  return {pk,sign:async tx=>{
+    tx.feePayer=pk;tx.recentBlockhash=(await conn.getLatestBlockhash()).blockhash;
+    const res=await bp.signAndSendTransaction(tx);
+    return res?.signature??res;
+  }};
+}
+
+let active=null;
+function onConnected(name){
+  $("who").textContent=active.pk.toBase58().slice(0,6)+"…"+active.pk.toBase58().slice(-4);
+  $("connectBtn").textContent="connected · "+name;
+  log("connected: "+name+" · "+active.pk.toBase58().slice(0,6)+"…","ok");
+  walletDialog.close();
+  loadRoses();
+}
+$("connectBtn").onclick=async()=>{
+  try{window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{register:registerWallet}}));}catch(e){}
+  if(window.x1wallet&&!wallets.has("X1 Wallet")) try{registerWallet(window.x1wallet);}catch(e){}
+  await new Promise(r=>setTimeout(r,80));
+  const list=$("walletList");list.innerHTML="";
+  const opts=[];
+  const seen=new Set([...wallets.keys()].map(n=>n.toLowerCase()));
+  for(const[name,w]of wallets) opts.push({label:name,go:async()=>{active=await connectStandard(w);onConnected(name);}});
+  if((window.backpack||window.xnft?.solana)&&!seen.has("backpack"))
+    opts.push({label:"Backpack",go:async()=>{active=await connectBackpack();onConnected("Backpack");}});
+  if(!opts.length){
+    list.innerHTML='<p style="color:var(--ash);font-size:13px;margin-bottom:12px">No wallet detected. Install one and set it to X1 Mainnet.</p>'+
+      '<a href="https://chromewebstore.google.com/detail/x1-wallet/kcfmcpdmlchhbikbogddmgopmjbflnae" target="_blank" class="wopt" style="display:block;padding:12px;border:1px solid var(--leaf);color:var(--leaf);margin-bottom:8px">⚡ Install X1 Wallet →</a>'+
+      '<a href="https://backpack.app/download" target="_blank" class="wopt" style="display:block;padding:12px;border:1px solid var(--ember);color:var(--ember)">🎒 Install Backpack →</a>';
+  } else {
+    opts.forEach(o=>{const b=document.createElement("button");b.className="wopt";b.textContent=o.label;
+      b.onclick=async()=>{try{await o.go();}catch(e){log("connect failed: "+(e.message||e),"bad");}};list.appendChild(b);});
+  }
+  walletDialog.showModal();
+};
+
+/* ── data ─────────────────────────────────────────────────────── */
+function decPlot(buf){
+  const d=dv(buf);let o=8;
+  const owner=new PublicKey(buf.slice(o,o+32));o+=32;
+  const region=new PublicKey(buf.slice(o,o+32));o+=32;
+  const plotIndex=d.getUint32(o,true);o+=4;
+  const soil=d.getBigUint64(o,true);o+=8;
+  const plants=[];
+  for(let i=0;i<6;i++){const tag=d.getUint8(o);o+=1;
+    if(tag){plants.push(new PublicKey(buf.slice(o,o+32)));o+=32;}else plants.push(null);}
+  return{owner,region,plotIndex,soil,plants};
+}
+function decPlant(buf){
+  const d=dv(buf);
+  const genome=new Uint8Array(buf.slice(43,75));
+  return{genome,slotIndex:d.getUint8(40),species:d.getUint16(41,true),
+    optimal:d.getUint16(75,true),lastEval:d.getBigUint64(85,true),
+    health:d.getUint16(93,true),biomass:d.getBigUint64(95,true),
+    stage:d.getUint8(103),stress:d.getBigUint64(104,true)};
+}
+function readWeatherBps(feedBuf){
+  if(!feedBuf) return null;
+  const d=feedBuf; const head=d[10],len=d[11];
+  if(!len) return null;
+  const idx=(head+64-1)%64;
+  return new DataView(d.buffer??d).getUint16(12+idx*2,true);
+}
+
+/* ── send ─────────────────────────────────────────────────────── */
+async function send(ix,label){
+  try{
+    if(!active) throw new Error("no wallet connected");
+    log(label+" — sign in wallet…");
+    const tx=new Transaction().add(ix);
+    const sig=await active.sign(tx);
+    log(label+" sent… confirming…");
+    for(let i=0;i<40;i++){
+      const st=await conn.getSignatureStatus(sig,{searchTransactionHistory:true}).catch(()=>null);
+      const s=st?.value?.confirmationStatus;
+      if(s==="confirmed"||s==="finalized"){
+        log(label+" ✓","ok");
+        // harvest breakdown
+        if(label.startsWith("harvest")){
+          try{
+            const txd=await conn.getTransaction(sig,{maxSupportedTransactionVersion:0,commitment:"confirmed"});
+            const lg=(txd?.meta?.logMessages||[]).find(l=>l.includes("storm-harvest"));
+            if(lg){const m=lg.match(/(\d+) total \(base (\d+) \+ storm bonus (\d+)\).*stress survived: (\d+)/);
+              if(m){const tot=Number(m[1])/1e9,base=Number(m[2])/1e9,bonus=Number(m[3])/1e9;
+                if(bonus>0) log(`🌩️ ${tot.toFixed(2)} EG = ${base.toFixed(2)} base + ${bonus.toFixed(2)} storm bonus`,"ok");
+                else log(`🌱 ${tot.toFixed(2)} EG harvested`,"ok");}}
+          }catch(e){}
+        }
+        setTimeout(()=>{loadRoses();refreshEg();},900);
+        return sig;
+      }
+      if(st?.value?.err) throw new Error("on-chain error");
+      await new Promise(r=>setTimeout(r,1500));
+    }
+  }catch(e){log(label+": "+(e.message||e),"bad");}
+}
+
+async function refreshEg(){
+  if(!active) return;
+  try{
+    const b=await conn.getTokenAccountBalance(ataKey(active.pk)).catch(()=>null);
+    const v=b?parseFloat(b.value.uiAmountString):0;
+    $("egBal").textContent=(v%1?v.toFixed(2):v)+"";
+  }catch(e){}
+}
+
+/* ── instruction builders ─────────────────────────────────────── */
+function u8(arr){return Buffer.from?Buffer.from(arr):Uint8Array.from(arr);}
+function ixTend(owner,plot,plant,regionIdx){
+  return new TransactionInstruction({programId:PID,data:u8(IX.tend),keys:[
+    {pubkey:owner,isSigner:true,isWritable:true},
+    {pubkey:CONFIG,isSigner:false,isWritable:false},
+    {pubkey:plot,isSigner:false,isWritable:true},
+    {pubkey:plant,isSigner:false,isWritable:true},
+    {pubkey:FEED[regionIdx],isSigner:false,isWritable:false},
+    {pubkey:REGION[regionIdx],isSigner:false,isWritable:false},
+    {pubkey:EG_CONFIG,isSigner:false,isWritable:true},
+    {pubkey:EG_MINT,isSigner:false,isWritable:true},
+    {pubkey:EG_MINT_AUTH,isSigner:false,isWritable:false},
+    {pubkey:ataKey(owner),isSigner:false,isWritable:true},
+    {pubkey:TREASURY,isSigner:false,isWritable:true},
+    {pubkey:TOKEN_PROG,isSigner:false,isWritable:false},
+    {pubkey:ATA_PROG,isSigner:false,isWritable:false},
+    {pubkey:SystemProgram.programId,isSigner:false,isWritable:false},
+  ]});
+}
+function ixCompost(owner,plot,plant,regionIdx){
+  return new TransactionInstruction({programId:PID,data:u8(IX.compost),keys:[
+    {pubkey:owner,isSigner:true,isWritable:true},
+    {pubkey:CONFIG,isSigner:false,isWritable:false},
+    {pubkey:POOL,isSigner:false,isWritable:true},
+    {pubkey:plot,isSigner:false,isWritable:true},
+    {pubkey:plant,isSigner:false,isWritable:true},
+    {pubkey:FEED[regionIdx],isSigner:false,isWritable:false},
+    {pubkey:REGION[regionIdx],isSigner:false,isWritable:false},
+    {pubkey:EG_CONFIG,isSigner:false,isWritable:true},
+    {pubkey:EG_MINT,isSigner:false,isWritable:true},
+    {pubkey:EG_MINT_AUTH,isSigner:false,isWritable:false},
+    {pubkey:ataKey(owner),isSigner:false,isWritable:true},
+    {pubkey:TREASURY,isSigner:false,isWritable:true},
+    {pubkey:TOKEN_PROG,isSigner:false,isWritable:false},
+    {pubkey:ATA_PROG,isSigner:false,isWritable:false},
+    {pubkey:SystemProgram.programId,isSigner:false,isWritable:false},
+  ]});
+}
+function ixHarvest(owner,plot,plant,regionIdx){
+  return new TransactionInstruction({programId:PID,data:u8(IX.harvest),keys:[
+    {pubkey:owner,isSigner:true,isWritable:true},
+    {pubkey:CONFIG,isSigner:false,isWritable:false},
+    {pubkey:POOL,isSigner:false,isWritable:true},
+    {pubkey:plot,isSigner:false,isWritable:true},
+    {pubkey:plant,isSigner:false,isWritable:true},
+    {pubkey:FEED[regionIdx],isSigner:false,isWritable:false},
+    {pubkey:REGION[regionIdx],isSigner:false,isWritable:false},
+    {pubkey:EG_CONFIG,isSigner:false,isWritable:true},
+    {pubkey:EG_MINT,isSigner:false,isWritable:true},
+    {pubkey:EG_MINT_AUTH,isSigner:false,isWritable:false},
+    {pubkey:ataKey(owner),isSigner:false,isWritable:true},
+    {pubkey:TREASURY,isSigner:false,isWritable:true},
+    {pubkey:TOKEN_PROG,isSigner:false,isWritable:false},
+    {pubkey:ATA_PROG,isSigner:false,isWritable:false},
+    {pubkey:SystemProgram.programId,isSigner:false,isWritable:false},
+  ]});
+}
+
+/* ── rose card builder ────────────────────────────────────────── */
+function weatherContext(bps,optimal){
+  if(bps===null) return{cls:"neutral",txt:"weather unknown"};
+  const diff=Math.abs(bps-optimal);
+  if(diff<1500) return{cls:"happy",txt:`🌤 thriving — weather near optimal (${bps.toLocaleString()} bps)`};
+  if(diff<3000) return{cls:"neutral",txt:`🌥 coping — weather drifting (${bps.toLocaleString()} bps)`};
+  return{cls:"struggle",txt:`⛈ stressed — far from optimal (${bps.toLocaleString()} bps)`};
+}
+
+function buildRoseCard(plotPk,plotData,plantPk,plantData,regionIdx,bps){
+  const pd=plantData;
+  const dead=pd.health===0;
+  const flowering=pd.stage>=5&&!dead;
+  const hpPct=Math.round(pd.health/10);
+  const stressNum=Number(pd.stress);
+  const stormMult=Math.min(3,1+stressNum/335000);
+  const wx=weatherContext(bps,pd.optimal);
+
+  const card=document.createElement("div");
+  card.className="rose-card"+(flowering?" flowering":"");
+
+  // portrait
+  const portrait=document.createElement("div");
+  portrait.className="rose-portrait";
+  portrait.innerHTML=rosesvg(pd.genome,dead?0:pd.stage,stressNum,200);
+
+  // stage pips
+  const pips=document.createElement("div");
+  pips.className="stage-pip";
+  for(let p=0;p<=5;p++){
+    const dot=document.createElement("div");
+    dot.className="pip"+(p<=pd.stage?(stressNum>50000?" stress":" filled"):"");
+    pips.appendChild(dot);
+  }
+  portrait.appendChild(pips);
+  card.appendChild(portrait);
+
+  // info
+  const info=document.createElement("div");
+  info.className="rose-info";
+
+  const stageName=dead?"fallen":flowering?"✿ in full bloom":["seed","sprouting","growing","budding","almost flowering","flowering"][pd.stage]||"stage "+pd.stage;
+  info.innerHTML=`
+    <div class="rose-name">${STAGE[dead?0:pd.stage]} ${stageName}</div>
+    <div class="rose-meta">optimal sky: ${pd.optimal.toLocaleString()} bps · ${REGION_NAME[regionIdx]} · plot #${plotData.plotIndex}</div>
+    <div class="health-bar"><div class="health-fill${hpPct<30?" low":""}" style="width:${hpPct}%"></div></div>
+    <div class="weather-ctx ${wx.cls}">${wx.txt}</div>
+    ${stressNum>5000?`<div class="storm-badge">🌩️ storm-weathered · harvest pays ${stormMult.toFixed(1)}×</div>`:""}
+  `;
+
+  // actions
+  const actions=document.createElement("div");
+  actions.className="actions";
+
+  if(dead){
+    const cb=document.createElement("button");
+    cb.textContent="compost (returns soil)";
+    cb.onclick=()=>send(ixCompost(active.pk,plotPk,plantPk,regionIdx),"compost");
+    actions.appendChild(cb);
+  } else {
+    const tb=document.createElement("button");
+    tb.textContent="tend your rose";
+    tb.onclick=()=>send(ixTend(active.pk,plotPk,plantPk,regionIdx),"tend");
+    actions.appendChild(tb);
+
+    if(flowering){
+      const hb=document.createElement("button");
+      hb.className="harvest-btn";
+      hb.textContent=stormMult>1.05?`harvest · ${stormMult.toFixed(1)}× storm bonus`:"harvest";
+      hb.onclick=()=>send(ixHarvest(active.pk,plotPk,plantPk,regionIdx),"harvest");
+      actions.appendChild(hb);
+    }
+
+    const compB=document.createElement("button");
+    compB.className="quiet";compB.textContent="compost";
+    compB.onclick=()=>{if(confirm("Compost this living plant? Its nutrients return to the shared pool."))
+      send(ixCompost(active.pk,plotPk,plantPk,regionIdx),"compost");};
+    actions.appendChild(compB);
+  }
+  info.appendChild(actions);
+  card.appendChild(info);
+  return card;
+}
+
+/* ── main loader ──────────────────────────────────────────────── */
+const PLOT_DISC=Array.from(new Uint8Array(require&&typeof require!=="undefined"?[]:[]));
+// compute plot discriminator in-browser
+async function getPlotDisc(){
+  const enc=new TextEncoder();
+  const data=enc.encode("account:Plot");
+  const hash=await crypto.subtle.digest("SHA-256",data);
+  return new Uint8Array(hash).slice(0,8);
+}
+
+async function loadRoses(){
+  if(!active){$("gallery").innerHTML="";return;}
+  $("gallery").innerHTML=`<div style="padding:40px 0;text-align:center;color:var(--ash);grid-column:1/-1">loading your roses…</div>`;
+
+  try{
+    const[feedInfos,disc]=await Promise.all([
+      conn.getMultipleAccountsInfo([FEED[0],FEED[1]]),
+      getPlotDisc()
+    ]);
+    const bps=[
+      readWeatherBps(feedInfos[0]?.data),
+      readWeatherBps(feedInfos[1]?.data)
+    ];
+    const b58disc=solanaWeb3.bs58?solanaWeb3.bs58.encode(disc):btoa(String.fromCharCode(...disc));
+    const allPlots=await conn.getProgramAccounts(PID,{
+      filters:[{memcmp:{offset:0,bytes:b58disc}}]
+    });
+    // filter to this wallet's plots
+    const myPlots=allPlots.filter(({account})=>{
+      try{const owner=new PublicKey(account.data.slice(8,40));return owner.equals(active.pk);}catch(e){return false;}
+    });
+
+    const cards=[];
+    for(const{pubkey,account}of myPlots){
+      const plot=decPlot(account.data);
+      const regionIdx=plot.region.equals(REGION[0])?0:1;
+      const plantKeys=plot.plants.filter(Boolean);
+      if(!plantKeys.length) continue;
+      const infos=await conn.getMultipleAccountsInfo(plantKeys);
+      plot.plants.forEach((pk,i)=>{
+        if(!pk) return;
+        const info=infos[plot.plants.filter(Boolean).indexOf(pk)];
+        if(!info) return;
+        const pd=decPlant(info.data);
+        cards.push({plotPk:pubkey,plotData:plot,plantPk:pk,plantData:pd,regionIdx,bps:bps[regionIdx]});
+      });
+    }
+
+    $("gallery").innerHTML="";
+    if(!cards.length){
+      $("empty").style.display="block";
+      return;
+    }
+    $("empty").style.display="none";
+    // sort: flowering first, then by health desc
+    cards.sort((a,b)=>{
+      const af=a.plantData.stage>=5&&a.plantData.health>0?1:0;
+      const bf=b.plantData.stage>=5&&b.plantData.health>0?1:0;
+      return bf-af||b.plantData.health-a.plantData.health;
+    });
+    cards.forEach(c=>$("gallery").appendChild(buildRoseCard(c.plotPk,c.plotData,c.plantPk,c.plantData,c.regionIdx,c.bps)));
+    refreshEg();
+  }catch(e){
+    $("gallery").innerHTML=`<div style="padding:40px;color:var(--ember);grid-column:1/-1">could not load roses: ${e.message}</div>`;
+  }
+}
+</script>
+</body>
+</html>
