@@ -205,8 +205,9 @@ $("connectBtn").onclick = async () => {
   await new Promise(r=>setTimeout(r,80)); // brief wait for extension to respond
   const list = $("walletList"); list.innerHTML = "";
   const opts = [];
-  if(window.backpack || window.xnft?.solana) opts.push({label:"Backpack", go:connectBackpack});
-  for(const [name,w] of wallets) if(name!=="Backpack") opts.push({label:name, go:()=>connectStandard(w)});
+  const seen=new Set([...wallets.keys()].map(n=>n.toLowerCase()));
+  if((window.backpack||window.xnft?.solana)&&!seen.has("backpack")) opts.push({label:"Backpack", go:connectBackpack});
+  for(const [name,w] of wallets) opts.push({label:name, go:()=>connectStandard(w)});
   if(isMobile && !opts.length){
     // Mobile, no injected wallet yet — offer deep links into wallet in-app browsers
     const here = encodeURIComponent(location.href);

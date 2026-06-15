@@ -28,6 +28,11 @@ button:disabled{color:#555;border-color:#333;cursor:not-allowed}
 .log{font-size:12px;white-space:pre-wrap;max-height:160px;overflow:auto;border-top:1px solid var(--line);padding-top:8px;margin-top:14px;color:var(--ash)}
 .ok{color:var(--leaf)}.bad{color:var(--warn)}
 select{background:var(--panel);color:var(--bone);border:1px solid var(--line);padding:7px;font-family:inherit}
+dialog{background:#131A13;color:#EFF2E8;border:1px solid #243224;padding:26px;max-width:380px;font-family:inherit}
+dialog::backdrop{background:rgba(5,8,5,.8)}
+dialog h3{font-weight:400;margin-bottom:14px}
+.wopt{display:block;width:100%;text-align:left;margin-bottom:10px;background:transparent;color:#9FD27E;border:1px solid #9FD27E;padding:12px 16px;cursor:pointer;font-family:inherit;font-size:14px}
+.wopt:hover{background:#9FD27E;color:#0B100C}
 </style>
 </head>
 <body>
@@ -78,6 +83,12 @@ select{background:var(--panel);color:var(--bone);border:1px solid var(--line);pa
 
 <div class="log" id="log"></div>
 
+<dialog id="walletDialog">
+  <h3>Connect wallet</h3>
+  <div id="walletList"></div>
+  <p class="help" style="color:#AAB59C;font-size:12px;margin-top:10px">X1 Wallet and any Wallet Standard wallet set to X1 Mainnet will appear here.</p>
+  <button onclick="walletDialog.close()" style="margin-top:10px;background:transparent;color:#AAB59C;border:1px solid #243224;padding:8px 16px;cursor:pointer;font-family:inherit">cancel</button>
+</dialog>
 <script>
 const {Connection, PublicKey, Transaction, TransactionInstruction, SystemProgram} = solanaWeb3;
 const RPC="https://rpc.mainnet.x1.xyz";
@@ -153,42 +164,44 @@ async function connectBackpack(){
   }};
 }
 
-$("connectBtn").onclick=async()=>{
-  // rescan for late-registering wallets (X1 Wallet timing fix)
+async function buildWalletOpts(){
+  // rescan on every open (catches late-registering X1 Wallet)
   try{window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{register:registerWallet}}));}catch(e){}
   if(window.x1wallet&&!wallets.has("X1 Wallet")) try{registerWallet(window.x1wallet);}catch(e){}
   await new Promise(r=>setTimeout(r,80));
-  // build options list — wallet-standard wallets + Backpack fallback
   const opts=[];
-  for(const [name,w] of wallets) opts.push({label:name, go:async()=>{
-    wallet=await connectStandard(w);
-    $("who").textContent=wallet.pk.toBase58().slice(0,6)+"…";
-    log("connected: "+name,"ok"); refreshEg(); refreshWeather();
-    setInterval(refreshWeather,6000); setInterval(refreshEg,8000);
-  }});
-  if(window.backpack||window.xnft?.solana) opts.push({label:"Backpack", go:async()=>{
-    wallet=await connectBackpack();
-    $("who").textContent=wallet.pk.toBase58().slice(0,6)+"…";
-    log("connected: Backpack","ok"); refreshEg(); refreshWeather();
-    setInterval(refreshWeather,6000); setInterval(refreshEg,8000);
-  }});
+  const seen=new Set();
+  for(const [name,w] of wallets){
+    seen.add(name.toLowerCase());
+    opts.push({label:name, go:async()=>{ wallet=await connectStandard(w); onWalletConnected(name); }});
+  }
+  // add Backpack only if not already found via wallet-standard
+  if((window.backpack||window.xnft?.solana)&&!seen.has("backpack"))
+    opts.push({label:"Backpack", go:async()=>{ wallet=await connectBackpack(); onWalletConnected("Backpack"); }});
+  return opts;
+}
+function onWalletConnected(name){
+  $("who").textContent=wallet.pk.toBase58().slice(0,6)+"…";
+  log("connected: "+name,"ok");
+  refreshEg(); refreshWeather();
+  setInterval(refreshWeather,6000); setInterval(refreshEg,8000);
+  document.getElementById("walletDialog").close();
+}
+$("connectBtn").onclick=async()=>{
+  const opts=await buildWalletOpts();
+  const list=document.getElementById("walletList"); list.innerHTML="";
   if(opts.length===0){
-    // no wallet found — show install links
-    log("no wallet detected — install X1 Wallet or Backpack, set network to X1, reload","bad");
-    const card=$("pending"); if(card) card.innerHTML=
-      '<small>No wallet found. <a href="https://chromewebstore.google.com/detail/x1-wallet/kcfmcpdmlchhbikbogddmgopmjbflnae" target="_blank" style="color:var(--leaf)">Install X1 Wallet →</a> or <a href="https://backpack.app/download" target="_blank" style="color:var(--leaf)">Backpack →</a>, set network to X1 mainnet, reload.</small>';
-    return;
+    list.innerHTML='<p style="margin-bottom:12px;color:#AAB59C;font-size:13px">No wallet detected. Install one, set network to X1 Mainnet, then reload.</p>'+
+      '<a href="https://chromewebstore.google.com/detail/x1-wallet/kcfmcpdmlchhbikbogddmgopmjbflnae" target="_blank" class="wopt">⚡ X1 Wallet →</a>'+
+      '<a href="https://backpack.app/download" target="_blank" class="wopt" style="color:#E0A878;border-color:#E0A878">🎒 Backpack →</a>';
+  } else {
+    opts.forEach(o=>{
+      const b=document.createElement("button"); b.className="wopt"; b.textContent=o.label;
+      b.onclick=async()=>{ try{await o.go();}catch(e){log("connect failed: "+(e.message||e),"bad");} };
+      list.appendChild(b);
+    });
   }
-  if(opts.length===1){
-    // only one wallet — connect directly
-    try{ await opts[0].go(); }catch(e){log("connect failed: "+(e.message||e),"bad");}
-    return;
-  }
-  // multiple wallets — let user pick
-  const card=$("pending"); if(card){
-    card.innerHTML="<small>choose wallet: "+opts.map((o,i)=>`<button id="wp${i}" style="margin:0 6px">${o.label}</button>`).join("")+"</small>";
-    opts.forEach((o,i)=>{ const b=document.getElementById("wp"+i); if(b) b.onclick=async()=>{ try{await o.go();}catch(e){log("connect failed: "+(e.message||e),"bad");} card.innerHTML=""; }; });
-  }
+  document.getElementById("walletDialog").showModal();
 };
 
 $("regionSel").onchange=e=>{currentRegion=parseInt(e.target.value);
