@@ -112,7 +112,7 @@ $("connectBtn").onclick=async()=>{
     const w=window.backpack?.solana??window.backpack;
     if(!w){log("no Backpack found — set RPC to testnet","bad");return;}
     const r=await w.connect();
-    wallet={pk:new PublicKey((r?.publicKey??w.publicKey).toString()), sign:tx=>w.signAndSendTransaction(tx)};
+    wallet={pk:new PublicKey((r?.publicKey??w.publicKey).toString()), sign:tx=>w.signAndSendTransaction(tx,{skipPreflight:true,maxRetries:5})};
     $("who").textContent=wallet.pk.toBase58().slice(0,6)+"…";
     log("connected","ok");
     refreshEg(); refreshWeather();
@@ -169,20 +169,17 @@ async function send(keys,data,label){
   const ix=new TransactionInstruction({programId:PID,keys,data:Uint8Array.from(data)});
   const tx=new Transaction().add(ix);
   tx.feePayer=wallet.pk;
-  const {blockhash, lastValidBlockHeight} = await conn.getLatestBlockhash("confirmed");
-  tx.recentBlockhash=blockhash;
+  // set blockhash immediately before sending (same pattern as garden.html), default commitment
+  tx.recentBlockhash=(await conn.getLatestBlockhash()).blockhash;
   log(label+" — approve in wallet…");
   const res=await wallet.sign(tx);
   const sig=res?.signature??res;
   log(label+" sent — confirming…");
-  // poll until confirmed or blockhash expires
   for(let i=0;i<40;i++){
     const st=await conn.getSignatureStatus(sig,{searchTransactionHistory:true}).catch(()=>null);
     const s=st?.value?.confirmationStatus;
     if(s==="confirmed"||s==="finalized"){log(label+" ✓","ok");return sig;}
     if(st?.value?.err)throw new Error("on-chain error: "+JSON.stringify(st.value.err));
-    const curHeight=await conn.getBlockHeight().catch(()=>0);
-    if(curHeight>lastValidBlockHeight+50) throw new Error("blockhash expired — try again");
     await new Promise(r=>setTimeout(r,1500));
   }
   log(label+": still confirming…");return sig;
