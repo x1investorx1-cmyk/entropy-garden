@@ -457,7 +457,7 @@ async function refreshMine(){
         const flowering = pd.stage>=5;
         // Storm-Chaser clue: stress survived -> projected harvest multiplier (1 + stress/25000, cap 3x)
         const stressNum = Number(pd.stress);
-        const stormMult = Math.min(3, 1 + stressNum/25000);
+        const stormMult = Math.min(3, 1 + stressNum/335000);
         // subtle clue while growing: storm marks that intensify with stress
         let stormClue = "";
         if(stressNum > 2000 && !dead){

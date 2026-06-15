@@ -10,7 +10,7 @@ pub const REWARD_PLANT: u64 = 5;      // 5 EG per planting
 pub const REWARD_HARVEST: u64 = 20;   // 20 EG on a flowering harvest
 pub const REWARD_COMPOST: u64 = 1;    // ~1 EG civic reward
 // Storm-Chaser: harvest bonus = base * cumulative_stress / DIVISOR (tuned after testing).
-pub const STORM_STRESS_DIVISOR: u64 = 25000;
+pub const STORM_STRESS_DIVISOR: u64 = 335000;
 
 // Fixed allocations (one-time mint, then authority renounced). 9 decimals.
 pub const ALLOC_TREASURY: u64 = 50_000_000;   // 5%  — LP seeding (program-locked)
