@@ -291,6 +291,32 @@ function readWeatherBps(feedBuf){
 }
 
 /* ── send ─────────────────────────────────────────────────────── */
+const ERRORS={
+  "0x1770":"the garden is paused",
+  "0x1771":"that's not your plot",
+  "0x1772":"this region isn't open",
+  "0x1773":"all 500 plots are claimed this season",
+  "0x1774":"the nutrient pool is exhausted",
+  "0x1775":"invalid slot",
+  "0x1776":"there's already a plant in that slot",
+  "0x1777":"not enough soil — compost something or draw from the pool",
+  "0x1778":"this plant is dead — compost it to return its nutrients",
+  "0x1779":"this plant is still alive — it can't be composted",
+  "0x177a":"tended too recently — let it breathe a few minutes 🌿",
+  "0x177b":"plant doesn't belong to this plot",
+  "0x177c":"plot doesn't belong to this region",
+  "0x177d":"weather sample out of range",
+  "0x177e":"weather sample too old",
+  "0x177f":"weather updates too frequent",
+  "0x1780":"no compost shares yet",
+  "0x1781":"nothing to draw from the pool yet",
+  "0x1787":"not ready yet — needs a fresh weather sample",
+};
+function friendly(msg){
+  const m=String(msg).match(/custom program error: (0x[0-9a-f]+)/i);
+  return (m && ERRORS[m[1].toLowerCase()]) || msg;
+}
+
 async function send(ix,label){
   try{
     if(!active) throw new Error("no wallet connected");
@@ -317,10 +343,10 @@ async function send(ix,label){
         setTimeout(()=>{loadRoses();refreshEg();},900);
         return sig;
       }
-      if(st?.value?.err) throw new Error("on-chain error");
+      if(st?.value?.err) throw new Error(friendly("custom program error: 0x"+(st.value.err?.InstructionError?.[1]?.Custom?.toString(16)||"")));
       await new Promise(r=>setTimeout(r,1500));
     }
-  }catch(e){log(label+": "+(e.message||e),"bad");}
+  }catch(e){log(label+": "+friendly(e.message||e),"bad");}
 }
 
 async function refreshEg(){
