@@ -333,7 +333,7 @@ async function refreshEg(){
 }
 
 /* ── instruction builders ─────────────────────────────────────── */
-function u8(arr){return Buffer.from?Buffer.from(arr):Uint8Array.from(arr);}
+const u8 = a => Uint8Array.from(a);
 function ixTend(owner,plot,plant,regionIdx){
   return new TransactionInstruction({programId:PID,data:u8(IX.tend),keys:[
     {pubkey:owner,isSigner:true,isWritable:true},
