@@ -154,17 +154,41 @@ async function connectBackpack(){
 }
 
 $("connectBtn").onclick=async()=>{
-  try{
-    // prefer a wallet-standard wallet exposing the x1 chain; else Backpack
-    let conn_wallet=null;
-    for(const [name,w] of wallets){ conn_wallet=await connectStandard(w); break; }
-    if(!conn_wallet) conn_wallet=await connectBackpack();
-    wallet=conn_wallet;
+  // rescan for late-registering wallets (X1 Wallet timing fix)
+  try{window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{register:registerWallet}}));}catch(e){}
+  if(window.x1wallet&&!wallets.has("X1 Wallet")) try{registerWallet(window.x1wallet);}catch(e){}
+  await new Promise(r=>setTimeout(r,80));
+  // build options list — wallet-standard wallets + Backpack fallback
+  const opts=[];
+  for(const [name,w] of wallets) opts.push({label:name, go:async()=>{
+    wallet=await connectStandard(w);
     $("who").textContent=wallet.pk.toBase58().slice(0,6)+"…";
-    log("connected","ok");
-    refreshEg(); refreshWeather();
+    log("connected: "+name,"ok"); refreshEg(); refreshWeather();
     setInterval(refreshWeather,6000); setInterval(refreshEg,8000);
-  }catch(e){log("connect failed: "+(e.message||e),"bad");}
+  }});
+  if(window.backpack||window.xnft?.solana) opts.push({label:"Backpack", go:async()=>{
+    wallet=await connectBackpack();
+    $("who").textContent=wallet.pk.toBase58().slice(0,6)+"…";
+    log("connected: Backpack","ok"); refreshEg(); refreshWeather();
+    setInterval(refreshWeather,6000); setInterval(refreshEg,8000);
+  }});
+  if(opts.length===0){
+    // no wallet found — show install links
+    log("no wallet detected — install X1 Wallet or Backpack, set network to X1, reload","bad");
+    const card=$("pending"); if(card) card.innerHTML=
+      '<small>No wallet found. <a href="https://chromewebstore.google.com/detail/x1-wallet/kcfmcpdmlchhbikbogddmgopmjbflnae" target="_blank" style="color:var(--leaf)">Install X1 Wallet →</a> or <a href="https://backpack.app/download" target="_blank" style="color:var(--leaf)">Backpack →</a>, set network to X1 mainnet, reload.</small>';
+    return;
+  }
+  if(opts.length===1){
+    // only one wallet — connect directly
+    try{ await opts[0].go(); }catch(e){log("connect failed: "+(e.message||e),"bad");}
+    return;
+  }
+  // multiple wallets — let user pick
+  const card=$("pending"); if(card){
+    card.innerHTML="<small>choose wallet: "+opts.map((o,i)=>`<button id="wp${i}" style="margin:0 6px">${o.label}</button>`).join("")+"</small>";
+    opts.forEach((o,i)=>{ const b=document.getElementById("wp"+i); if(b) b.onclick=async()=>{ try{await o.go();}catch(e){log("connect failed: "+(e.message||e),"bad");} card.innerHTML=""; }; });
+  }
 };
 
 $("regionSel").onchange=e=>{currentRegion=parseInt(e.target.value);

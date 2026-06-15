@@ -196,7 +196,13 @@ function base58(bytes){ // minimal b58 for signature display
   let s=""; while(x>0n){ s=A[Number(x%58n)]+s; x/=58n; } return s||"1";
 }
 const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-$("connectBtn").onclick = () => {
+$("connectBtn").onclick = async () => {
+  // Re-scan for wallets at click time: re-dispatch app-ready so any late-registering
+  // wallets (e.g. X1 Wallet injecting after page load) get a second chance to register.
+  try{ window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{register:registerWallet}})); }catch(e){}
+  // Also check window.xnft / window.x1wallet directly as a fallback
+  if(window.x1wallet && !wallets.has("X1 Wallet")) try{ registerWallet(window.x1wallet); }catch(e){}
+  await new Promise(r=>setTimeout(r,80)); // brief wait for extension to respond
   const list = $("walletList"); list.innerHTML = "";
   const opts = [];
   if(window.backpack || window.xnft?.solana) opts.push({label:"Backpack", go:connectBackpack});
