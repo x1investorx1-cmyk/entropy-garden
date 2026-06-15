@@ -93,6 +93,11 @@ dialog h3{font-family:var(--disp);font-weight:400;margin-bottom:14px}
 
 <div class="log" id="log"></div>
 
+<dialog id="roseDialog" style="max-width:340px;padding:28px;text-align:center">
+  <div id="rosePortrait"></div>
+  <p id="roseCaption" style="margin:10px 0 4px;font-size:13px;color:var(--ash)"></p>
+  <button class="quiet" onclick="roseDialog.close()" style="margin-top:8px">close</button>
+</dialog>
 <dialog id="walletDialog">
   <h3>Choose a wallet</h3>
   <div id="walletList"></div>
@@ -118,6 +123,71 @@ const TOKEN_PROG  = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
 const ATA_PROG    = new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
 function ataKey(owner){ return PublicKey.findProgramAddressSync(
   [owner.toBytes(), TOKEN_PROG.toBytes(), EG_MINT.toBytes()], ATA_PROG)[0]; }
+
+
+/* ── rose SVG generator ─────────────────────────────────────────
+   Derives a unique rose from a plant's on-chain genome.
+   genome: Uint8Array(32), stage: 0-5, stress: cumulative_stress  */
+function rosesvg(genome,stage,stress,size=120){
+  const g=genome;
+  const hueBase=(g[0]*1.8)%360;
+  const hue=(hueBase*0.4+(g[1]%3)*30+340)%360;
+  const sat=55+(g[2]%35), light=38+(g[3]%22);
+  const petalCount=5+(g[4]%3), stemCurve=(g[6]%20)-10;
+  const weathered=Math.min(1,stress/400000);
+  const edgeDark=Math.round(weathered*15), droopAngle=weathered*8;
+  const petal=`hsl(${hue},${sat}%,${light}%)`;
+  const petalDark=`hsl(${hue},${sat+10}%,${light-edgeDark-12}%)`;
+  const petalLight=`hsl(${hue},${sat-15}%,${light+18}%)`;
+  const leafCol=`hsl(${100+(g[7]%40)},${45+(g[8]%30)}%,${22+(g[9]%18)}%)`;
+  const stemCol=`hsl(${105+(g[10]%20)},${35+(g[11]%20)}%,${18+(g[12]%12)}%)`;
+  const cx=size/2, cy=size*0.52;
+  function ppth(angle,rO,rI){
+    const rad=angle*Math.PI/180;
+    const tx=cx+Math.cos(rad)*rO, ty=cy+Math.sin(rad)*rO;
+    const s1=(angle+90)*Math.PI/180, s2=(angle-90)*Math.PI/180;
+    const w=rI*0.55;
+    const c1x=cx+Math.cos(s1)*w+Math.cos(rad)*rO*0.5, c1y=cy+Math.sin(s1)*w+Math.sin(rad)*rO*0.5;
+    const c2x=cx+Math.cos(s2)*w+Math.cos(rad)*rO*0.5, c2y=cy+Math.sin(s2)*w+Math.sin(rad)*rO*0.5;
+    return `M ${cx} ${cy} C ${c1x} ${c1y},${tx} ${ty},${tx} ${ty} C ${tx} ${ty},${c2x} ${c2y},${cx} ${cy} Z`;
+  }
+  let p=[];
+  p.push(`<line x1="${cx+stemCurve}" y1="${cy}" x2="${cx}" y2="${cy+size*0.42}" stroke="${stemCol}" stroke-width="3.5" stroke-linecap="round"/>`);
+  if(stage>=1){
+    const lx=cx+stemCurve*0.5, ly=cy+size*0.22;
+    p.push(`<path d="M ${lx} ${ly} Q ${lx-22*(size/120)} ${ly-8} ${lx-30*(size/120)} ${ly+10} Q ${lx-14*(size/120)} ${ly+8} ${lx} ${ly} Z" fill="${leafCol}" opacity="0.9"/>`);
+    if(stage>=2) p.push(`<path d="M ${lx} ${ly} Q ${lx+22*(size/120)} ${ly-8} ${lx+30*(size/120)} ${ly+10} Q ${lx+14*(size/120)} ${ly+8} ${lx} ${ly} Z" fill="${leafCol}" opacity="0.8"/>`);
+  }
+  if(stage===0){
+    p.push(`<ellipse cx="${cx}" cy="${cy-8*(size/120)}" rx="7" ry="12" fill="${petal}"/>`);
+    p.push(`<path d="M ${cx} ${cy+4} Q ${cx-6} ${cy-2} ${cx} ${cy-18*(size/120)} Q ${cx+6} ${cy-2} ${cx} ${cy+4}" fill="${petalDark}" opacity="0.6"/>`);
+    p.push(`<path d="M ${cx} ${cy+3} Q ${cx-10} ${cy-4} ${cx-4} ${cy-14*(size/120)}" stroke="${leafCol}" stroke-width="1.5" fill="none"/>`);
+    p.push(`<path d="M ${cx} ${cy+3} Q ${cx+10} ${cy-4} ${cx+4} ${cy-14*(size/120)}" stroke="${leafCol}" stroke-width="1.5" fill="none"/>`);
+  } else {
+    const vp=stage===1?2:stage===2?3:stage===3?4:stage===4?petalCount:petalCount+1;
+    const oR=size*(0.22+stage*0.025);
+    for(let i=0;i<Math.min(vp,petalCount);i++){
+      const angle=-90+droopAngle+(i/petalCount)*360;
+      const op=stage>=3?1:0.65;
+      p.push(`<path d="${ppth(angle,oR*op,oR*0.55*op)}" fill="${petal}" stroke="${petalDark}" stroke-width="0.8" opacity="0.92"/>`);
+    }
+    if(stage>=4){
+      const ip=Math.ceil(petalCount*0.6);
+      for(let i=0;i<ip;i++){
+        const angle=-90+droopAngle+22+(i/ip)*360;
+        p.push(`<path d="${ppth(angle,oR*0.58,oR*0.32)}" fill="${petalLight}" stroke="${petalDark}" stroke-width="0.5" opacity="0.88"/>`);
+      }
+    }
+    if(stage>=3){
+      const cs=oR*0.22;
+      p.push(`<circle cx="${cx}" cy="${cy}" r="${cs}" fill="hsl(${hue-10},${sat}%,${light-8}%)"/>`);
+      if(stage>=5) p.push(`<circle cx="${cx}" cy="${cy}" r="${cs*0.5}" fill="hsl(45,80%,65%)"/>`);
+    }
+    p.push(`<path d="M ${cx} ${cy+4} Q ${cx-12} ${cy+2} ${cx-8} ${cy-10*(size/120)}" stroke="${leafCol}" stroke-width="1.5" fill="none" opacity="0.6"/>`);
+    p.push(`<path d="M ${cx} ${cy+4} Q ${cx+12} ${cy+2} ${cx+8} ${cy-10*(size/120)}" stroke="${leafCol}" stroke-width="1.5" fill="none" opacity="0.6"/>`);
+  }
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg" style="cursor:pointer">${p.join('')}</svg>`;
+}
 
 const IX = { claim:[125,132,62,56,128,210,150,69], plant:[139,66,41,202,41,145,173,204],
              tend:[169,80,232,45,188,3,247,112], compost:[150,11,76,97,196,3,122,103],
@@ -261,7 +331,8 @@ function decPlot(buf){
 }
 function decPlant(buf){
   const d = dv(buf);
-  return { slotIndex:d.getUint8(40), species:d.getUint16(41,true), optimal:d.getUint16(75,true),
+  const genome=new Uint8Array(buf.slice(43,75));
+  return { slotIndex:d.getUint8(40), species:d.getUint16(41,true), genome,optimal:d.getUint16(75,true),
     lastEval:d.getBigUint64(85,true), health:d.getUint16(93,true),
     biomass:d.getBigUint64(95,true), stage:d.getUint8(103),
     stress:d.getBigUint64(104,true) };
@@ -471,10 +542,30 @@ async function refreshMine(){
           const drops = stormMult>=3 ? "🌩️🌩️🌩️" : stormMult>=2 ? "🌩️🌩️" : "🌩️";
           stormClue = `<div class="storm" title="this plant is weathering storms — harvest pays more">${drops} <span style="opacity:.7">weathered</span></div>`;
         }
-        cell.innerHTML = `<span class="glyph">${dead?"☠":STAGE[pd.stage]||"·"}</span>
-          ${dead?"dead":"stage "+pd.stage} · ❤${pd.health}
-          <span class="hp"><i class="${hpPct<30?'low':''}" style="width:${hpPct}%"></i></span>
-          optimal sky: ${pd.optimal} bps${stormClue}`;
+        // build rose SVG (small, inline)
+        const rsvg = pd.genome ? rosesvg(pd.genome, dead?0:pd.stage, Number(pd.stress||0n), 90) : "";
+        // rose click → full portrait modal
+        const roseClickId = "rc_"+plotKey+"_"+i;
+        cell.innerHTML = `<div style="display:flex;align-items:flex-start;gap:10px">
+          <div id="${roseClickId}" style="flex-shrink:0">${rsvg}</div>
+          <div style="flex:1;min-width:0">
+            <span class="glyph">${dead?"☠":STAGE[pd.stage]||"·"}</span>
+            ${dead?"dead":"stage "+pd.stage} · ❤${pd.health}
+            <span class="hp"><i class="${hpPct<30?'low':''}" style="width:${hpPct}%"></i></span>
+            <div style="font-size:11px;color:var(--ash);margin-top:3px">optimal: ${pd.optimal} bps</div>
+            ${stormClue}
+          </div>
+        </div>`;
+        // attach click handler for full rose portrait
+        if(pd.genome){
+          const rEl = document.getElementById(roseClickId);
+          if(rEl) rEl.onclick = ()=>{
+            document.getElementById("rosePortrait").innerHTML = rosesvg(pd.genome, dead?0:pd.stage, Number(pd.stress||0n), 240);
+            const stormTxt = Number(pd.stress||0n)>5000 ? ` · weathered (${(Number(pd.stress||0n)/1000).toFixed(0)}k stress)` : "";
+            document.getElementById("roseCaption").textContent = `stage ${pd.stage} · optimal ${pd.optimal} bps${stormTxt}`;
+            document.getElementById("roseDialog").showModal();
+          };
+        }
         if(flowering && !dead){
           // ready to harvest — show the storm bonus explicitly here
           const hb = document.createElement("button");
