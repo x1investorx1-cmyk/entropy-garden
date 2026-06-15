@@ -27,7 +27,7 @@ button:hover:not(:disabled){background:var(--leaf);color:var(--ink)}
 .quiet{color:var(--ash);border-color:var(--line)}
 .quiet:hover{background:var(--line);color:var(--bone)}
 /* gallery */
-#gallery{padding:24px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}
+#gallery{padding:24px 24px 120px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}
 .rose-card{background:var(--panel);border:1px solid var(--line);border-radius:6px;overflow:hidden;transition:border-color .2s}
 .rose-card:hover{border-color:#3a5a3a}
 .rose-card.flowering{border-color:#C97B4A}
@@ -57,7 +57,8 @@ button:hover:not(:disabled){background:var(--leaf);color:var(--ink)}
 #empty{display:none;text-align:center;padding:80px 24px;color:var(--ash)}
 #empty h2{font-weight:400;font-size:20px;color:var(--bone);margin-bottom:12px}
 /* log */
-#log{position:fixed;bottom:0;left:0;right:0;background:#060c06;border-top:1px solid var(--line);padding:8px 16px;font-size:11px;color:var(--ash);max-height:80px;overflow-y:auto;z-index:10}
+#log{position:fixed;bottom:0;left:0;right:0;background:rgba(6,12,6,0.96);border-top:1px solid var(--line);padding:6px 16px;font-size:11px;color:var(--ash);max-height:64px;overflow-y:auto;z-index:10;backdrop-filter:blur(4px)}
+#log:empty{display:none}
 .ok{color:var(--leaf)}.bad{color:var(--ember)}
 /* wallet dialog */
 dialog{background:var(--panel);color:var(--bone);border:1px solid var(--line);padding:26px;max-width:380px;font-family:inherit}
