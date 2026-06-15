@@ -10,6 +10,12 @@ pub const REWARD_PLANT: u64 = 5;      // 5 EG per planting
 pub const REWARD_HARVEST: u64 = 20;   // 20 EG on a flowering harvest
 pub const REWARD_COMPOST: u64 = 1;    // ~1 EG civic reward
 
+// Fixed allocations (one-time mint, then authority renounced). 9 decimals.
+pub const ALLOC_TREASURY: u64 = 50_000_000;   // 5%  — LP seeding (program-locked)
+pub const ALLOC_COMMUNITY: u64 = 40_000_000;  // 4%  — airdrops/quests (program-locked)
+pub const ALLOC_DEV: u64 = 10_000_000;        // 1%  — dev, paired into public LP
+pub const TOTAL_SUPPLY_CAP: u64 = 1_000_000_000; // 1B
+
 // Emission schedule
 pub const ERA_SLOTS: u64 = 6_480_000;       // ~30 days at 2.5 slots/sec
 pub const GENESIS_BONUS_SLOTS: u64 = 1_512_000; // ~7 days
@@ -81,3 +87,4 @@ impl EgConfig {
 }
 
 pub mod instructions;
+pub mod skyread;

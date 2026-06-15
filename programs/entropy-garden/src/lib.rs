@@ -8,6 +8,7 @@ pub mod state;
 
 use instructions::*;
 use eg::instructions::*;
+use eg::skyread::*;
 use state::WeatherChannel;
 
 declare_id!("8gTX3w2mAkKhGip9Mmvhb3gkcETugkfLEvmT4BNTh1By");
@@ -58,6 +59,22 @@ pub mod entropy_garden {
 
     pub fn harvest(ctx: Context<Harvest>) -> Result<()> {
         instructions::harvest(ctx)
+    }
+
+    pub fn mint_allocations(ctx: Context<MintAllocations>) -> Result<()> {
+        eg::instructions::mint_allocations(ctx)
+    }
+
+    pub fn renounce_mint_authority(ctx: Context<RenounceAuthority>) -> Result<()> {
+        eg::instructions::renounce_mint_authority(ctx)
+    }
+
+    pub fn commit_forecast(ctx: Context<CommitForecast>, region_id: u16, predict_storm: bool, window_slots: u64, commit_slot: u64) -> Result<()> {
+        eg::skyread::commit_forecast(ctx, region_id, predict_storm, window_slots, commit_slot)
+    }
+
+    pub fn resolve_forecast(ctx: Context<ResolveForecast>) -> Result<()> {
+        eg::skyread::resolve_forecast(ctx)
     }
 
     pub fn init_eg_mint(ctx: Context<InitEgMint>, fee_lamports: u64, fee_cap_lamports: u64) -> Result<()> {

@@ -44,4 +44,10 @@ pub enum GardenError {
     EgPaused,
     #[msg("Plant must be at stage 5 (flowering) to harvest.")]
     NotFlowering,
+    #[msg("Allocations have already been minted.")]
+    AllocationsAlreadyMinted,
+    #[msg("Forecast window out of allowed range.")]
+    BadForecastWindow,
+    #[msg("Forecast cannot be resolved yet.")]
+    ForecastNotReady,
 }
