@@ -107,17 +107,64 @@ const log=(m,c="")=>{const d=document.createElement("div");d.className=c;d.textC
 
 let wallet=null, predictStorm=null, currentRegion=0, pending=null;
 
+/* ---- wallet: Wallet Standard + Backpack fallback (ported from garden.html) ---- */
+const wallets=new Map();
+function registerWallet(w){
+  try{
+    if(!w?.features?.["standard:connect"]) return;
+    const chains=w.chains||[];
+    const ok=chains.length===0||chains.some(c=>{const s=String(c);return s.startsWith("solana")||s.startsWith("x1");});
+    if(ok) wallets.set(w.name,w);
+  }catch(e){}
+}
+window.addEventListener("wallet-standard:register-wallet",ev=>ev.detail&&registerWallet(ev.detail));
+try{window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{register:registerWallet}}));}catch(e){}
+function base58(bytes){const A="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";let x=BigInt(0);for(const b of bytes)x=(x<<8n)+BigInt(b);let s="";while(x>0n){s=A[Number(x%58n)]+s;x/=58n;}return s||"1";}
+
+async function connectStandard(w){
+  const res=await w.features["standard:connect"].connect();
+  const acct=res.accounts[0];
+  const pk=new PublicKey(acct.publicKey??acct.address);
+  const sast=w.features["solana:signAndSendTransaction"];
+  const st=w.features["solana:signTransaction"];
+  const allChains=acct.chains?.length?acct.chains:(w.chains||[]);
+  const chain=allChains.find(c=>String(c).startsWith("x1"))??allChains[0]??"solana:mainnet";
+  const dc=w.features["standard:disconnect"];
+  return {pk, sign: async tx=>{
+    tx.feePayer=pk; tx.recentBlockhash=(await conn.getLatestBlockhash()).blockhash;
+    if(sast){
+      const ser=tx.serialize({requireAllSignatures:false,verifySignatures:false});
+      const [out]=await sast.signAndSendTransaction({transaction:ser, account:acct, chain});
+      return typeof out.signature==="string"?out.signature:base58(out.signature);
+    }
+    const [signed]=await st.signTransaction({transaction:tx.serialize({requireAllSignatures:false,verifySignatures:false}),account:acct});
+    return conn.sendRawTransaction(signed.signedTransaction);
+  }};
+}
+async function connectBackpack(){
+  const bp=window.backpack?.solana??window.backpack??window.xnft?.solana;
+  if(!bp) throw new Error("Backpack not found");
+  const resp=await bp.connect();
+  const pk=new PublicKey((resp?.publicKey??bp.publicKey).toString());
+  return {pk, sign: async tx=>{
+    tx.feePayer=pk; tx.recentBlockhash=(await conn.getLatestBlockhash()).blockhash;
+    const res=await bp.signAndSendTransaction(tx);
+    return res?.signature??res;
+  }};
+}
+
 $("connectBtn").onclick=async()=>{
   try{
-    const w=window.backpack?.solana??window.backpack;
-    if(!w){log("no Backpack found — set RPC to testnet","bad");return;}
-    const r=await w.connect();
-    wallet={pk:new PublicKey((r?.publicKey??w.publicKey).toString()), sign:tx=>w.signAndSendTransaction(tx,{skipPreflight:true,maxRetries:5})};
+    // prefer a wallet-standard wallet exposing the x1 chain; else Backpack
+    let conn_wallet=null;
+    for(const [name,w] of wallets){ conn_wallet=await connectStandard(w); break; }
+    if(!conn_wallet) conn_wallet=await connectBackpack();
+    wallet=conn_wallet;
     $("who").textContent=wallet.pk.toBase58().slice(0,6)+"…";
     log("connected","ok");
     refreshEg(); refreshWeather();
     setInterval(refreshWeather,6000); setInterval(refreshEg,8000);
-  }catch(e){log("connect failed: "+e.message,"bad");}
+  }catch(e){log("connect failed: "+(e.message||e),"bad");}
 };
 
 $("regionSel").onchange=e=>{currentRegion=parseInt(e.target.value);
