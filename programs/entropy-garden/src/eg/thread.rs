@@ -23,7 +23,7 @@ pub const MAZE_H: u8 = 16;            // maze grid height
 pub const PATH_LEN: u8 = 48;          // length of the true path to the heart
 pub const CHECKPOINT_EVERY: u8 = 6;   // lock in pending EG every N steps
 pub const REWARD_STEP_BP: u64 = 3000; // base EG per step in basis points (3000 = 0.30 EG)
-pub const HEART_BONUS_BP: u64 = 80000; // heart payout in basis points (80000 = 8 EG)
+pub const HEART_BONUS_BP: u64 = 250000; // heart payout in basis points (250000 = 25 EG)
 pub const AMP_STEP_BP: u64 = 800;     // amplifier climbs +8% (800 bp) per correct step
 pub const AMP_MAX_BP: u64 = 30000;    // amplifier caps at ×3.0
 pub const REVEAL_DELAY: u64 = 3;      // slots to wait before maze reveal (future blockhash)
@@ -48,6 +48,21 @@ pub struct Thread {
     pub pending_eg: u64,        // EG accrued since last checkpoint (whole-EG units, pre-era)
     pub reached_heart: bool,    // prestige flag
     pub active: bool,           // is this thread in progress
+    pub bump: u8,
+    pub wrong_turns: u32,       // wrong turns this run (for trophy stats)
+    pub _reserved: [u8; 28],
+}
+
+// ── HeartWalker: permanent on-chain trophy, one per wallet, never closed ──
+#[account]
+#[derive(InitSpace)]
+pub struct HeartWalker {
+    pub walker: Pubkey,
+    pub first_heart_slot: u64,
+    pub total_hearts: u32,
+    pub best_amplifier_bp: u64,
+    pub fewest_wrong_turns: u32,
+    pub first_seed: [u8; 32],
     pub bump: u8,
     pub _reserved: [u8; 32],
 }
@@ -185,6 +200,7 @@ pub fn enter_maze(ctx: Context<EnterMaze>) -> Result<()> {
     t.reached_heart = false;
     t.active = true;
     t.bump = ctx.bumps.thread;
+    t.wrong_turns = 0;
     msg!("Ariadne: entered the labyrinth at slot {}", now);
     Ok(())
 }
@@ -247,6 +263,9 @@ pub struct StepThread<'info> {
     #[account(init_if_needed, payer = walker,
         associated_token::mint = eg_mint, associated_token::authority = walker)]
     pub walker_eg: Box<Account<'info, TokenAccount>>,
+    #[account(init_if_needed, payer = walker, space = 8 + HeartWalker::INIT_SPACE,
+        seeds = [b"heartwalker", walker.key().as_ref()], bump)]
+    pub heart_walker: Box<Account<'info, HeartWalker>>,
     /// CHECK: treasury
     #[account(mut, address = eg_config.treasury)]
     pub treasury: UncheckedAccount<'info>,
@@ -298,8 +317,20 @@ pub fn step_thread(ctx: Context<StepThread>, direction: u8) -> Result<()> {
             mint_pending(&mut ctx.accounts.eg_config, &ctx.accounts.eg_mint,
                 &ctx.accounts.eg_mint_auth, &ctx.accounts.walker_eg,
                 &ctx.accounts.token_program, bump, paused, now, t)?;
+            let hw = &mut ctx.accounts.heart_walker;
+            if hw.first_heart_slot == 0 {
+                hw.walker = t.walker;
+                hw.first_heart_slot = now;
+                hw.first_seed = t.seed;
+                hw.fewest_wrong_turns = t.wrong_turns;
+                hw.best_amplifier_bp = t.amplifier_bp;
+                hw.bump = ctx.bumps.heart_walker;
+            }
+            hw.total_hearts = hw.total_hearts.saturating_add(1);
+            if t.amplifier_bp > hw.best_amplifier_bp { hw.best_amplifier_bp = t.amplifier_bp; }
+            if t.wrong_turns < hw.fewest_wrong_turns { hw.fewest_wrong_turns = t.wrong_turns; }
             t.active = false;
-            msg!("Ariadne: YOU REACHED THE HEART. The rose is yours.");
+            msg!("Ariadne: YOU REACHED THE HEART. Trophy stamped. Total hearts: {}", hw.total_hearts);
             return Ok(());
         }
 
@@ -317,6 +348,7 @@ pub fn step_thread(ctx: Context<StepThread>, direction: u8) -> Result<()> {
     } else {
         // WRONG TURN — snap all the way to the gate
         let forfeited = t.pending_eg;
+        t.wrong_turns = t.wrong_turns.saturating_add(1);
         t.pos = 0;
         t.last_checkpoint = 0;
         t.amplifier_bp = 10000;
