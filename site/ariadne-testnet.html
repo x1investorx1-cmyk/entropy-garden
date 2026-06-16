@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ariadne's Thread — Entropy Garden</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌹</text></svg>">
+<script src="https://unpkg.com/@solana/web3.js@1.95.8/lib/index.iife.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/js-sha3/0.8.0/sha3.min.js"></script>
+<style>
+:root{--ink:#0B100C;--bone:#EFF2E8;--ash:#AAB59C;--leaf:#9FD27E;--panel:#131A13;--line:#243224;--ember:#C97B4A;--gold:#E0C878;--rose:#E48AAE}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--ink);color:var(--bone);font-family:ui-monospace,monospace;min-height:100vh;line-height:1.5}
+a{color:var(--ash);text-decoration:none}a:hover{color:var(--bone)}
+nav{padding:16px 24px;font-size:12px;border-bottom:1px solid var(--line);display:flex;gap:18px;flex-wrap:wrap}
+.wrap{max-width:920px;margin:0 auto;padding:28px 24px 120px}
+h1{font-family:Georgia,serif;font-weight:400;font-size:30px;color:var(--bone);margin-bottom:6px}
+h1 em{color:var(--leaf);font-style:italic}
+.intro{color:var(--ash);font-size:13.5px;max-width:680px;margin-bottom:8px}
+.connect-bar{padding:14px 0;display:flex;gap:12px;align-items:center}
+button{background:transparent;color:var(--leaf);border:1px solid var(--leaf);padding:10px 16px;cursor:pointer;font-family:inherit;font-size:13px;min-height:40px}
+button:disabled{color:#444;border-color:#2a3a2a;cursor:not-allowed}
+button:hover:not(:disabled){background:var(--leaf);color:var(--ink)}
+.quiet{color:var(--ash);border-color:var(--line)}.quiet:hover{background:var(--line);color:var(--bone)}
+.game{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:24px;margin-top:20px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:24px}
+@media(max-width:760px){.game{grid-template-columns:1fr}}
+/* maze */
+#mazeWrap{display:flex;align-items:center;justify-content:center;background:#0a0f0a;border:1px solid var(--line);border-radius:6px;padding:12px;min-height:340px}
+#maze{display:block}
+/* right panel */
+.panel{display:flex;flex-direction:column;gap:18px}
+.amp-row{display:flex;justify-content:space-between;align-items:baseline}
+.amp-label{font-size:12px;color:var(--ash);text-transform:uppercase;letter-spacing:.08em}
+.amp-val{font-size:30px;color:var(--gold);font-weight:500}
+.amp-bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+.amp-fill{height:100%;background:linear-gradient(90deg,var(--leaf),var(--gold));width:0%;transition:width .4s}
+.stat-grid{display:flex;gap:18px}
+.stat{flex:1}
+.stat .n{font-size:22px;color:var(--bone)}
+.stat .l{font-size:11px;color:var(--ash);text-transform:uppercase;letter-spacing:.06em}
+.pending{color:var(--leaf)}
+/* dpad */
+.dpad{display:grid;grid-template-columns:repeat(3,52px);grid-template-rows:repeat(3,52px);gap:6px;justify-content:center;margin:6px auto}
+.dpad button{min-height:0;padding:0;font-size:18px;display:flex;align-items:center;justify-content:center}
+.dpad .n{grid-column:2;grid-row:1}.dpad .w{grid-column:1;grid-row:2}.dpad .e{grid-column:3;grid-row:2}.dpad .s{grid-column:2;grid-row:3}
+.dpad .center{grid-column:2;grid-row:2;display:flex;align-items:center;justify-content:center;color:var(--rose);font-size:20px}
+.hint{font-size:11px;color:var(--ash);text-align:center}
+.entry-bar{display:flex;justify-content:space-between;align-items:center;margin-top:18px;padding-top:16px;border-top:1px solid var(--line);font-size:12px;color:var(--ash)}
+#log{position:fixed;bottom:0;left:0;right:0;background:rgba(6,12,6,.96);border-top:1px solid var(--line);padding:6px 16px;font-size:11px;color:var(--ash);max-height:64px;overflow-y:auto;z-index:10;backdrop-filter:blur(4px)}
+#log:empty{display:none}.ok{color:var(--leaf)}.bad{color:var(--ember)}.gold{color:var(--gold)}
+dialog{background:var(--panel);color:var(--bone);border:1px solid var(--line);padding:26px;max-width:380px;font-family:inherit}
+dialog::backdrop{background:rgba(5,8,5,.8)}dialog h3{font-weight:400;margin-bottom:14px}
+.wopt{display:block;width:100%;text-align:left;margin-bottom:10px;padding:12px 16px;font-size:14px}
+.flash-correct{animation:fc .5s}@keyframes fc{0%{background:#1a3a1a}100%{background:#0a0f0a}}
+.flash-wrong{animation:fw .6s}@keyframes fw{0%,40%{background:#3a1010}100%{background:#0a0f0a}}
+.heart-glow{animation:hg 2s infinite}@keyframes hg{0%,100%{opacity:.7}50%{opacity:1}}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/">← observatory</a>
+  <a href="/garden.html">your garden</a>
+  <a href="/rose.html">🌹 your roses</a>
+  <a href="/skyread-mainnet.html">🌥️ read the sky</a>
+</nav>
+
+<div class="wrap">
+  <h1>Ariadne's <em>Thread</em></h1>
+  <p class="intro">Trace the one true path to the heart. Each correct step winds the amplifier higher and banks EG at every checkpoint. One wrong turn and the thread snaps — back to the gate, your pending EG forfeit. The labyrinth is yours alone, woven from a future moment you couldn't foresee. Read the path, then walk it.</p>
+
+  <div class="connect-bar">
+    <button id="connectBtn">connect wallet</button>
+    <span id="who" style="color:var(--ash);font-size:13px">not connected</span>
+    <span style="margin-left:auto;font-size:13px;color:var(--leaf)">EG: <b id="egBal">—</b></span>
+  </div>
+
+  <div class="game">
+    <div>
+      <div id="mazeWrap"><div id="maze" style="color:var(--ash);font-size:13px">connect to enter the labyrinth</div></div>
+    </div>
+    <div class="panel">
+      <div>
+        <div class="amp-row"><span class="amp-label">amplifier</span><span class="amp-val" id="ampVal">×1.0</span></div>
+        <div class="amp-bar"><div class="amp-fill" id="ampFill"></div></div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat"><div class="n pending" id="pendingVal">0</div><div class="l">pending EG</div></div>
+        <div class="stat"><div class="n" id="stepVal">0<span style="color:var(--ash);font-size:14px">/48</span></div><div class="l">steps</div></div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat"><div class="n" id="cpVal">0</div><div class="l">last checkpoint</div></div>
+        <div class="stat"><div class="n" id="attemptVal">0</div><div class="l">wrong turns</div></div>
+      </div>
+      <div>
+        <div class="dpad">
+          <button class="n" data-dir="0" disabled>↑</button>
+          <button class="w" data-dir="3" disabled>←</button>
+          <div class="center" id="centerGlyph">🧵</div>
+          <button class="e" data-dir="1" disabled>→</button>
+          <button class="s" data-dir="2" disabled>↓</button>
+        </div>
+        <p class="hint" id="hint">read the path, then walk it</p>
+      </div>
+      <div id="controls">
+        <button id="enterBtn" style="width:100%">enter the labyrinth · ~0.025 XNT</button>
+      </div>
+    </div>
+  </div>
+  <div class="entry-bar">
+    <span>entry + per-step fee → treasury · checkpoints every 6 steps</span>
+    <button id="abandonBtn" class="quiet" style="display:none">abandon thread</button>
+  </div>
+</div>
+
+<div id="log"></div>
+<dialog id="walletDialog"><h3>Connect wallet</h3><div id="walletList"></div>
+  <p style="color:var(--ash);font-size:12px;margin-top:10px">X1 Wallet and any Wallet Standard wallet set to X1 Mainnet will appear here.</p>
+  <button class="quiet" onclick="walletDialog.close()" style="margin-top:8px">cancel</button></dialog>
+
+<script>
+const {Connection,PublicKey,Transaction,TransactionInstruction,SystemProgram}=solanaWeb3;
+const RPC="https://rpc.testnet.x1.xyz";
+const conn=new Connection(RPC,"confirmed");
+const PID=new PublicKey("8gTX3w2mAkKhGip9Mmvhb3gkcETugkfLEvmT4BNTh1By");
+const TOKEN_PROGRAM=new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+const ATA_PROGRAM=new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
+const SLOT_HASHES=new PublicKey("SysvarS1otHashes111111111111111111111111111");
+const te=s=>new TextEncoder().encode(s);
+const pda=s=>PublicKey.findProgramAddressSync(s,PID)[0];
+const EG_CONFIG=pda([te("eg_config")]),EG_MINT=pda([te("eg_mint")]);
+const EG_AUTH=pda([te("eg_mint_auth")]),TREASURY=pda([te("eg_treasury")]);
+const ataKey=o=>PublicKey.findProgramAddressSync([o.toBytes(),TOKEN_PROGRAM.toBytes(),EG_MINT.toBytes()],ATA_PROGRAM)[0];
+const D={enter:[106,217,18,214,223,28,203,196],reveal:[207,35,13,252,238,89,3,83],step:[109,84,180,73,157,201,237,0],abandon:[195,231,149,152,64,93,167,48]};
+const $=id=>document.getElementById(id);
+const log=(m,c="")=>{const d=document.createElement("div");d.className=c;d.textContent="› "+m;$("log").prepend(d);};
+
+const MAZE_W=16,MAZE_H=16,PATH_LEN=48;
+function keccakStep(state){const h=sha3.keccak256.arrayBuffer(state);state.set(new Uint8Array(h).slice(0,32));return state[0];}
+function stepXY(x,y,d){return d===0?[x,y-1]:d===1?[x+1,y]:d===2?[x,y+1]:[x-1,y];}
+function pickDistinct(order,k){const base=[0,1,2,3],seen=[0,0,0,0],out=[0,0,0,0];let i=0;
+  for(const o of order)if(!seen[o]){seen[o]=1;out[i++]=base[o];}
+  for(let j=0;j<4;j++)if(!seen[j]){seen[j]=1;out[i++]=base[j];}return out[Math.min(k,3)];}
+function truePath(seed){const state=new Uint8Array(seed),path=[],cells=[[0,0]];let x=0,y=0;
+  const vis=Array.from({length:MAZE_W},()=>new Array(MAZE_H).fill(false));vis[0][0]=true;
+  while(path.length<PATH_LEN){const r=keccakStep(state);
+    const order=[r%4,Math.floor(r/4)%4,Math.floor(r/16)%4,Math.floor(r/64)%4];let moved=false;
+    for(let k=0;k<4;k++){const d=pickDistinct(order,k);const[nx,ny]=stepXY(x,y,d);
+      if(nx>=0&&nx<MAZE_W&&ny>=0&&ny<MAZE_H&&!vis[nx][ny]){x=nx;y=ny;vis[x][y]=true;path.push(d);cells.push([x,y]);moved=true;break;}}
+    if(!moved){const d=keccakStep(state)%4;const[nx,ny]=stepXY(x,y,d);
+      if(nx>=0&&nx<MAZE_W&&ny>=0&&ny<MAZE_H){x=nx;y=ny;vis[x][y]=true;path.push(d);cells.push([x,y]);}else path.push((d+2)%4);}}
+  return {path,cells};}
+
+/* ── wallet (standard + backpack, auto-reconnect) ── */
+const wallets=new Map();
+function registerWallet(w){try{if(!w?.features?.["standard:connect"])return;const c=w.chains||[];
+  if(c.length===0||c.some(x=>{const s=String(x);return s.startsWith("solana")||s.startsWith("x1");}))wallets.set(w.name,w);}catch(e){}}
+window.addEventListener("wallet-standard:register-wallet",ev=>ev.detail&&registerWallet(ev.detail));
+try{window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{register:registerWallet}}));}catch(e){}
+function b58(bytes){const A="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";let x=BigInt(0);for(const b of bytes)x=(x<<8n)+BigInt(b);let s="";while(x>0n){s=A[Number(x%58n)]+s;x/=58n;}return s||"1";}
+async function connectStandard(w){const res=await w.features["standard:connect"].connect();const acct=res.accounts[0];
+  const pk=new PublicKey(acct.publicKey??acct.address);const sast=w.features["solana:signAndSendTransaction"];const st=w.features["solana:signTransaction"];
+  const ch=(acct.chains?.length?acct.chains:(w.chains||[]));const chain=ch.find(c=>String(c).startsWith("x1"))??ch[0]??"solana:mainnet";
+  return {pk,sign:async tx=>{tx.feePayer=pk;tx.recentBlockhash=(await conn.getLatestBlockhash()).blockhash;
+    if(sast){const ser=tx.serialize({requireAllSignatures:false,verifySignatures:false});const[out]=await sast.signAndSendTransaction({transaction:ser,account:acct,chain});return typeof out.signature==="string"?out.signature:b58(out.signature);}
+    const[s]=await st.signTransaction({transaction:tx.serialize({requireAllSignatures:false,verifySignatures:false}),account:acct});return conn.sendRawTransaction(s.signedTransaction);}};}
+async function connectBackpack(){const bp=window.backpack?.solana??window.backpack??window.xnft?.solana;if(!bp)throw new Error("Backpack not found");
+  const r=await bp.connect();const pk=new PublicKey((r?.publicKey??bp.publicKey).toString());
+  return {pk,sign:async tx=>{tx.feePayer=pk;tx.recentBlockhash=(await conn.getLatestBlockhash()).blockhash;const res=await bp.signAndSendTransaction(tx);return res?.signature??res;}};}
+
+let active=null, maze=null, thread=null;
+function onConnected(name){
+  $("who").textContent=active.pk.toBase58().slice(0,6)+"…"+active.pk.toBase58().slice(-4);
+  $("connectBtn").textContent="connected · "+name;
+  try{localStorage.setItem("eg_wallet",name);}catch(e){}
+  walletDialog.close();
+  refreshEg(); loadThread();
+}
+$("connectBtn").onclick=async()=>{
+  try{window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{register:registerWallet}}));}catch(e){}
+  if(window.x1wallet&&!wallets.has("X1 Wallet"))try{registerWallet(window.x1wallet);}catch(e){}
+  await new Promise(r=>setTimeout(r,80));
+  const list=$("walletList");list.innerHTML="";const opts=[];const seen=new Set([...wallets.keys()].map(n=>n.toLowerCase()));
+  for(const[name,w]of wallets)opts.push({label:name,go:async()=>{active=await connectStandard(w);onConnected(name);}});
+  if((window.backpack||window.xnft?.solana)&&!seen.has("backpack"))opts.push({label:"Backpack",go:async()=>{active=await connectBackpack();onConnected("Backpack");}});
+  if(!opts.length){list.innerHTML='<p style="color:var(--ash);font-size:13px;margin-bottom:12px">No wallet detected.</p><a href="https://chromewebstore.google.com/detail/x1-wallet/kcfmcpdmlchhbikbogddmgopmjbflnae" target="_blank" class="wopt" style="border:1px solid var(--leaf);color:var(--leaf)">⚡ Install X1 Wallet →</a>';}
+  else opts.forEach(o=>{const b=document.createElement("button");b.className="wopt";b.textContent=o.label;b.onclick=async()=>{try{await o.go();}catch(e){log("connect failed: "+(e.message||e),"bad");}};list.appendChild(b);});
+  walletDialog.showModal();
+};
+async function tryAutoConnect(){let saved=null;try{saved=localStorage.getItem("eg_wallet");}catch(e){}if(!saved)return;
+  for(let a=0;a<8;a++){try{window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{register:registerWallet}}));}catch(e){}
+    if(window.x1wallet&&!wallets.has("X1 Wallet"))try{registerWallet(window.x1wallet);}catch(e){}
+    if(wallets.has(saved)){try{active=await connectStandard(wallets.get(saved));onConnected(saved);return;}catch(e){return;}}
+    if(saved==="Backpack"&&(window.backpack||window.xnft?.solana)){try{active=await connectBackpack();onConnected("Backpack");return;}catch(e){return;}}
+    await new Promise(r=>setTimeout(r,250));}}
+window.addEventListener("load",()=>setTimeout(tryAutoConnect,300));
+
+const ERRORS={"0x1770":"the garden is paused",
+ "0x1788":"you already have an active thread — abandon it to start fresh",
+ "0x1789":"no active thread — enter the labyrinth first",
+ "0x178a":"the maze is already revealed",
+ "0x178b":"reveal the maze before walking",
+ "0x178c":"too early to reveal — wait a moment and try again",
+ "0x178d":"invalid direction",
+ "0x178e":"you are already at the heart"};
+function friendly(msg){const m=String(msg).match(/custom program error: (0x[0-9a-f]+)/i);return (m&&ERRORS[m[1].toLowerCase()])||msg;}
+
+async function send(keys,data,label){
+  if(!active)throw new Error("connect a wallet first");
+  const ix=new TransactionInstruction({programId:PID,keys,data:Uint8Array.from(data)});
+  const tx=new Transaction().add(ix);
+  log(label+" — sign in wallet…");
+  const sig=await active.sign(tx);
+  log(label+" sent… confirming…");
+  for(let i=0;i<40;i++){const st=await conn.getSignatureStatus(sig,{searchTransactionHistory:true}).catch(()=>null);
+    const s=st?.value?.confirmationStatus;
+    if(s==="confirmed"||s==="finalized"){return sig;}
+    if(st?.value?.err)throw new Error(friendly("custom program error: 0x"+(st.value.err?.InstructionError?.[1]?.Custom?.toString(16)||"")));
+    await new Promise(r=>setTimeout(r,1400));}
+  return sig;
+}
+
+function threadPda(){return pda([te("thread"),active.pk.toBytes()]);}
+async function loadThread(){
+  if(!active)return;
+  const info=await conn.getAccountInfo(threadPda()).catch(()=>null);
+  if(!info){thread=null;renderIdle();return;}
+  const d=info.data;let o=8;o+=32;
+  const entrySlot=d.readBigUInt64LE(o);o+=8;const seed=Uint8Array.from(d.slice(o,o+32));o+=32;
+  const revealed=d[o++],pos=d[o++],lastCp=d[o++],amp=Number(d.readBigUInt64LE(o));o+=8;const pending=Number(d.readBigUInt64LE(o));o+=8;
+  const heart=d[o++],actv=d[o++];
+  thread={entrySlot,seed,revealed:!!revealed,pos,lastCp,amp,pending,heart:!!heart,active:!!actv};
+  if(thread.active&&thread.revealed){maze=truePath(thread.seed);renderPlaying();}
+  else if(thread.active&&!thread.revealed){renderNeedReveal();}
+  else renderIdle();
+}
+
+async function refreshEg(){if(!active)return;try{const b=await conn.getTokenAccountBalance(ataKey(active.pk)).catch(()=>null);const v=b?parseFloat(b.value.uiAmountString):0;$("egBal").textContent=(v%1?v.toFixed(2):v)+"";}catch(e){}}
+
+/* ── maze rendering ── */
+function drawMaze(){
+  if(!maze){return;}
+  const S=20, pad=2, sz=MAZE_W*S+pad*2;
+  const cur = thread.pos < maze.cells.length ? maze.cells[thread.pos] : maze.cells[maze.cells.length-1];
+  // trail of cells visited so far
+  let cellsHtml="";
+  for(let i=0;i<=thread.pos && i<maze.cells.length;i++){
+    const [cx,cy]=maze.cells[i];
+    const isCur=i===thread.pos;
+    const isCp=i>0 && i%6===0;
+    cellsHtml+=`<rect x="${pad+cx*S}" y="${pad+cy*S}" width="${S-2}" height="${S-2}" rx="3" fill="${isCur?'var(--leaf)':isCp?'#2a4a2a':'#1a2a1a'}" opacity="${isCur?1:0.7}"/>`;
+  }
+  // gate marker and heart marker
+  const [hx,hy]=maze.cells[maze.cells.length-1];
+  const gate=`<rect x="${pad}" y="${pad}" width="${S-2}" height="${S-2}" rx="3" fill="none" stroke="var(--ash)" stroke-width="1" stroke-dasharray="2"/>`;
+  const heart=`<text x="${pad+hx*S+S/2}" y="${pad+hy*S+S-4}" font-size="13" text-anchor="middle" class="heart-glow" fill="var(--rose)">🌹</text>`;
+  // faint full grid
+  let grid="";
+  for(let i=0;i<=MAZE_W;i++){grid+=`<line x1="${pad+i*S}" y1="${pad}" x2="${pad+i*S}" y2="${pad+MAZE_H*S}" stroke="#152015" stroke-width="0.5"/>`;
+    grid+=`<line x1="${pad}" y1="${pad+i*S}" x2="${pad+MAZE_W*S}" y2="${pad+i*S}" stroke="#152015" stroke-width="0.5"/>`;}
+  $("maze").outerHTML=`<svg id="maze" width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}">${grid}${gate}${cellsHtml}${heart}</svg>`;
+}
+
+function renderIdle(){
+  $("maze").outerHTML='<div id="maze" style="color:var(--ash);font-size:13px;text-align:center">the labyrinth awaits.<br>enter to begin the thread.</div>';
+  $("controls").innerHTML='<button id="enterBtn" style="width:100%">enter the labyrinth · ~0.025 XNT</button>';
+  $("enterBtn").onclick=doEnter;
+  $("abandonBtn").style.display="none";
+  setDpad(false); updatePanel(1,0,0,0,0);
+}
+function renderNeedReveal(){
+  $("maze").outerHTML='<div id="maze" style="color:var(--gold);font-size:13px;text-align:center">you stand at the gate.<br>the labyrinth is taking shape…</div>';
+  $("controls").innerHTML='<button id="revealBtn" style="width:100%">reveal the labyrinth</button>';
+  $("revealBtn").onclick=doReveal;
+  $("abandonBtn").style.display="";
+  setDpad(false);
+}
+function renderPlaying(){
+  drawMaze();
+  $("controls").innerHTML='<p style="font-size:12px;color:var(--ash);text-align:center">walk the thread — choose your direction</p>';
+  $("abandonBtn").style.display="";
+  setDpad(true);
+  updatePanel(thread.amp/10000, thread.pending, thread.pos, thread.lastCp, wrongCount);
+  if(thread.heart) renderHeart();
+}
+function renderHeart(){
+  $("maze").outerHTML='<div id="maze" style="text-align:center"><div style="font-size:48px" class="heart-glow">🌹</div><div style="color:var(--rose);font-size:16px;margin-top:8px">You reached the heart.</div><div style="color:var(--ash);font-size:12px;margin-top:4px">The thread is complete. The rose is yours.</div></div>';
+  $("controls").innerHTML='<button id="enterBtn" style="width:100%">walk again</button>';
+  $("enterBtn").onclick=doEnter;
+  setDpad(false);
+}
+function setDpad(on){document.querySelectorAll(".dpad button").forEach(b=>b.disabled=!on);}
+function updatePanel(amp,pending,pos,cp,wrong){
+  $("ampVal").textContent="×"+amp.toFixed(1);
+  $("ampFill").style.width=Math.min(100,(amp-1)/2*100)+"%";
+  $("pendingVal").textContent=(pending/10000).toFixed(2);
+  $("stepVal").innerHTML=pos+'<span style="color:var(--ash);font-size:14px">/48</span>';
+  $("cpVal").textContent=cp;
+  $("attemptVal").textContent=wrong;
+}
+
+let wrongCount=0;
+async function doEnter(){
+  try{wrongCount=0;
+    await send([
+      {pubkey:active.pk,isSigner:true,isWritable:true},{pubkey:threadPda(),isSigner:false,isWritable:true},
+      {pubkey:EG_CONFIG,isSigner:false,isWritable:true},{pubkey:TREASURY,isSigner:false,isWritable:true},
+      {pubkey:SystemProgram.programId,isSigner:false,isWritable:false},
+    ],D.enter,"enter labyrinth");
+    log("entered. now reveal the labyrinth.","ok");
+    await loadThread();
+  }catch(e){log("enter failed: "+friendly(e.message||e),"bad");}
+}
+async function doReveal(){
+  try{
+    await send([
+      {pubkey:active.pk,isSigner:true,isWritable:true},{pubkey:threadPda(),isSigner:false,isWritable:true},
+      {pubkey:SLOT_HASHES,isSigner:false,isWritable:false},
+    ],D.reveal,"reveal");
+    log("the labyrinth is revealed. walk the thread.","gold");
+    await loadThread();
+  }catch(e){log("reveal failed: "+friendly(e.message||e),"bad");}
+}
+async function doStep(dir){
+  setDpad(false);
+  const prevPos=thread.pos;
+  try{
+    await send([
+      {pubkey:active.pk,isSigner:true,isWritable:true},{pubkey:threadPda(),isSigner:false,isWritable:true},
+      {pubkey:EG_CONFIG,isSigner:false,isWritable:true},{pubkey:EG_MINT,isSigner:false,isWritable:true},
+      {pubkey:EG_AUTH,isSigner:false,isWritable:false},{pubkey:ataKey(active.pk),isSigner:false,isWritable:true},
+      {pubkey:TREASURY,isSigner:false,isWritable:true},{pubkey:TOKEN_PROGRAM,isSigner:false,isWritable:false},
+      {pubkey:ATA_PROGRAM,isSigner:false,isWritable:false},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false},
+    ],D.step,"step "+"NESW"[dir]);
+    await loadThread();
+    if(thread.pos>prevPos){
+      $("mazeWrap").classList.remove("flash-correct");void $("mazeWrap").offsetWidth;$("mazeWrap").classList.add("flash-correct");
+      if(thread.pos%6===0&&!thread.heart) log("checkpoint! pending EG locked in 🌿","ok");
+      else if(thread.heart) log("THE HEART. the rose is yours. 🌹","gold");
+      else log("step "+thread.pos+" · amplifier ×"+(thread.amp/10000).toFixed(2),"ok");
+      refreshEg();
+    } else {
+      wrongCount++;
+      $("mazeWrap").classList.remove("flash-wrong");void $("mazeWrap").offsetWidth;$("mazeWrap").classList.add("flash-wrong");
+      log("WRONG TURN. the thread snaps — back to the gate.","bad");
+    }
+  }catch(e){log("step failed: "+friendly(e.message||e),"bad");await loadThread();}
+  if(thread&&thread.active&&!thread.heart)setDpad(true);
+}
+document.querySelectorAll(".dpad button").forEach(b=>b.onclick=()=>doStep(parseInt(b.dataset.dir)));
+$("abandonBtn").onclick=async()=>{
+  if(!confirm("Abandon this thread? Your maze is lost and you start fresh."))return;
+  try{await send([{pubkey:active.pk,isSigner:true,isWritable:true},{pubkey:threadPda(),isSigner:false,isWritable:true}],D.abandon,"abandon");
+    log("thread abandoned.","ok");maze=null;thread=null;await loadThread();}catch(e){log("abandon failed: "+friendly(e.message||e),"bad");}
+};
+$("enterBtn")&&($("enterBtn").onclick=doEnter);
+</script>
+</body>
+</html>
