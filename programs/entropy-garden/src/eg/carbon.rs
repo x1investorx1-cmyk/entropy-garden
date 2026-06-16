@@ -21,7 +21,7 @@ pub const TPS_REGION: u16 = 1;   // leaves feed
 // Growth rate divisor. mass gain = bps * slots_elapsed / RATE_DIV.
 // Calibrated so a plant sequestering steady ambient flow reaches a
 // harvestable mass at ~gardening rate. Tune against real accumulation.
-pub const RATE_DIV: u64 = 1_000_000;
+pub const RATE_DIV: u64 = 1_000;
 
 // Cap slots_elapsed per sequester so a long-dormant sink can't mint a
 // huge jump in one poke (and to bound integer growth). ~1 day of slots.
@@ -31,8 +31,12 @@ pub const MAX_ELAPSED: u64 = 216_000;
 // sequestered mass. Kept low; the diversity bonus rewards a mature chain.
 pub const REWARD_CARBON_BASE: u64 = 1;
 
+// Harvest payout divisor: brings accumulated mass down to ~gardening rate.
+// ~1 day leaf-only accumulation (≈1.03M mass) pays ~10 EG; balanced pays 2x.
+pub const HARVEST_DIV: u64 = 100_000;
+
 // Minimum total mass before a sink can be harvested (avoid dust harvests).
-pub const MIN_HARVEST_MASS: u64 = 100;
+pub const MIN_HARVEST_MASS: u64 = 100_000;
 
 #[account]
 #[derive(InitSpace)]
@@ -186,25 +190,26 @@ pub fn harvest_carbon(ctx: Context<HarvestCarbon>) -> Result<()> {
     // raw EG (whole units) before era factor
     let base = REWARD_CARBON_BASE
         .saturating_mul(total_mass)
-        .saturating_mul(diversity_num) / 100;
+        .saturating_mul(diversity_num) / (100u64.saturating_mul(HARVEST_DIV));
     let amount = ctx.accounts.eg_config.reward_amount(base, now);
 
-    if amount > 0 {
-        let bump = ctx.accounts.eg_config.mint_authority_bump;
-        let seeds: &[&[u8]] = &[b"eg_mint_auth", &[bump]];
-        let signer = &[seeds];
-        anchor_spl::token::mint_to(
-            CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
-                anchor_spl::token::MintTo {
-                    mint: ctx.accounts.eg_mint.to_account_info(),
-                    to: ctx.accounts.owner_eg.to_account_info(),
-                    authority: ctx.accounts.eg_mint_auth.to_account_info(),
-                }, signer),
-            amount)?;
-        ctx.accounts.eg_config.total_minted =
-            ctx.accounts.eg_config.total_minted.saturating_add(amount);
-    }
+    // guard: never reset the sink for a zero reward (don't trap a player's mass)
+    require!(amount > 0, GardenError::NotFlowering);
+
+    let bump = ctx.accounts.eg_config.mint_authority_bump;
+    let seeds: &[&[u8]] = &[b"eg_mint_auth", &[bump]];
+    let signer = &[seeds];
+    anchor_spl::token::mint_to(
+        CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            anchor_spl::token::MintTo {
+                mint: ctx.accounts.eg_mint.to_account_info(),
+                to: ctx.accounts.owner_eg.to_account_info(),
+                authority: ctx.accounts.eg_mint_auth.to_account_info(),
+            }, signer),
+        amount)?;
+    ctx.accounts.eg_config.total_minted =
+        ctx.accounts.eg_config.total_minted.saturating_add(amount);
 
     let s = &mut ctx.accounts.sink;
     s.total_harvested = s.total_harvested.saturating_add(amount);
