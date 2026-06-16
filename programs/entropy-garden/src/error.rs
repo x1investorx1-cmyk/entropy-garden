@@ -50,4 +50,18 @@ pub enum GardenError {
     BadForecastWindow,
     #[msg("Forecast cannot be resolved yet.")]
     ForecastNotReady,
+    #[msg("You already have an active thread.")]
+    ThreadAlreadyActive,
+    #[msg("No active thread.")]
+    NoActiveThread,
+    #[msg("The maze has already been revealed.")]
+    MazeAlreadyRevealed,
+    #[msg("The maze hasn't been revealed yet.")]
+    MazeNotRevealed,
+    #[msg("Too early to reveal the maze.")]
+    RevealTooEarly,
+    #[msg("Invalid direction.")]
+    BadDirection,
+    #[msg("You're already at the heart.")]
+    AlreadyAtHeart,
 }

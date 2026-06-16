@@ -9,6 +9,7 @@ pub mod state;
 use instructions::*;
 use eg::instructions::*;
 use eg::skyread::*;
+use eg::thread::*;
 use state::WeatherChannel;
 
 declare_id!("8gTX3w2mAkKhGip9Mmvhb3gkcETugkfLEvmT4BNTh1By");
@@ -67,6 +68,19 @@ pub mod entropy_garden {
 
     pub fn renounce_mint_authority(ctx: Context<RenounceAuthority>) -> Result<()> {
         eg::instructions::renounce_mint_authority(ctx)
+    }
+
+    pub fn enter_maze(ctx: Context<EnterMaze>) -> Result<()> {
+        eg::thread::enter_maze(ctx)
+    }
+    pub fn reveal_maze(ctx: Context<RevealMaze>) -> Result<()> {
+        eg::thread::reveal_maze(ctx)
+    }
+    pub fn step_thread(ctx: Context<StepThread>, direction: u8) -> Result<()> {
+        eg::thread::step_thread(ctx, direction)
+    }
+    pub fn abandon_thread(ctx: Context<AbandonThread>) -> Result<()> {
+        eg::thread::abandon_thread(ctx)
     }
 
     pub fn commit_forecast(ctx: Context<CommitForecast>, region_id: u16, predict_storm: bool, window_slots: u64, commit_slot: u64) -> Result<()> {
