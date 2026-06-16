@@ -130,9 +130,8 @@ function ataKey(owner){ return PublicKey.findProgramAddressSync(
    genome: Uint8Array(32), stage: 0-5, stress: cumulative_stress  */
 function rosesvg(genome,stage,stress,size=120){
   const g=genome;
-  const hueBase=(g[0]*1.8)%360;
-  const hue=(hueBase*0.4+(g[1]%3)*30+340)%360;
-  const sat=55+(g[2]%35), light=38+(g[3]%22);
+  const hue=(345+(g[1]%4)*5+(g[2]%8))%360;
+  const sat=70+(g[2]%20), light=38+(g[3]%14);
   const petalCount=5+(g[4]%3), stemCurve=(g[6]%20)-10;
   const weathered=Math.min(1,stress/400000);
   const edgeDark=Math.round(weathered*15), droopAngle=weathered*8;

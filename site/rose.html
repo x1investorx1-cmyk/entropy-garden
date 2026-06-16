@@ -130,11 +130,11 @@ const $=id=>document.getElementById(id);
 const log=(m,c="")=>{const d=document.createElement("div");d.className=c;d.textContent="› "+m;$("log").prepend(d);};
 
 /* ── rose SVG ─────────────────────────────────────────────────── */
-function rosesvg(genome,stage,stress,size=200){
+function rosesvg(genome,stage,stress,size=200,labyrinth=false){
   const g=genome;
-  const hueBase=(g[0]*1.8)%360;
-  const hue=(hueBase*0.4+(g[1]%3)*30+340)%360;
-  const sat=55+(g[2]%35),light=38+(g[3]%22);
+  // red rose palette: deep crimson to true red, genome-varied
+  const hue=(345+(g[1]%4)*5+(g[2]%8))%360;
+  const sat=70+(g[2]%20),light=38+(g[3]%14);
   const petalCount=5+(g[4]%3),stemCurve=(g[6]%20)-10;
   const weathered=Math.min(1,stress/400000);
   const edgeDark=Math.round(weathered*15),droopAngle=weathered*8;
@@ -145,6 +145,8 @@ function rosesvg(genome,stage,stress,size=200){
   const stemCol=`hsl(${105+(g[10]%20)},${35+(g[11]%20)}%,${18+(g[12]%12)}%)`;
   const cx=size/2,cy=size*0.52;
   const sc=size/120;
+  // labyrinth trophy: gold edges + center
+  const edgeCol=labyrinth?'#E0C878':petalDark;
   function ppth(angle,rO,rI){
     const rad=angle*Math.PI/180;
     const tx=cx+Math.cos(rad)*rO,ty=cy+Math.sin(rad)*rO;
@@ -155,6 +157,10 @@ function rosesvg(genome,stage,stress,size=200){
     return `M ${cx} ${cy} C ${c1x} ${c1y},${tx} ${ty},${tx} ${ty} C ${tx} ${ty},${c2x} ${c2y},${cx} ${cy} Z`;
   }
   let p=[];
+  if(labyrinth){
+    p.push(`<defs><radialGradient id="aura${size}"><stop offset="0%" stop-color="#E0C878" stop-opacity="0.35"/><stop offset="70%" stop-color="#E0C878" stop-opacity="0.08"/><stop offset="100%" stop-color="#E0C878" stop-opacity="0"/></radialGradient></defs>`);
+    p.push(`<circle cx="${cx}" cy="${cy}" r="${size*0.46}" fill="url(#aura${size})"/>`);
+  }
   p.push(`<line x1="${cx+stemCurve}" y1="${cy}" x2="${cx}" y2="${cy+size*0.42}" stroke="${stemCol}" stroke-width="${3.5*sc}" stroke-linecap="round"/>`);
   if(stage>=1){
     const lx=cx+stemCurve*0.5,ly=cy+size*0.22;
@@ -172,7 +178,11 @@ function rosesvg(genome,stage,stress,size=200){
     for(let i=0;i<Math.min(vp,petalCount);i++){
       const angle=-90+droopAngle+(i/petalCount)*360;
       const op=stage>=3?1:0.65;
-      p.push(`<path d="${ppth(angle,oR*op,oR*0.55*op)}" fill="${petal}" stroke="${petalDark}" stroke-width="0.8" opacity="0.92"/>`);
+      p.push(`<path d="${ppth(angle,oR*op,oR*0.55*op)}" fill="${petal}" stroke="${edgeCol}" stroke-width="${labyrinth?1.1:0.8}" opacity="0.92"/>`);
+    }
+    if(labyrinth&&stage>=3){
+      for(let i=0;i<petalCount;i++){const a2=-90+(i/petalCount)*360,r2=a2*Math.PI/180;
+        p.push(`<path d="M ${cx} ${cy} Q ${cx+Math.cos(r2)*oR*0.4} ${cy+Math.sin(r2)*oR*0.4} ${cx+Math.cos(r2)*oR*0.92} ${cy+Math.sin(r2)*oR*0.92}" stroke="#F0D890" stroke-width="0.8" fill="none" opacity="0.7"/>`);}
     }
     if(stage>=4){
       const ip=Math.ceil(petalCount*0.6);
@@ -183,8 +193,8 @@ function rosesvg(genome,stage,stress,size=200){
     }
     if(stage>=3){
       const cs=oR*0.22;
-      p.push(`<circle cx="${cx}" cy="${cy}" r="${cs}" fill="hsl(${hue-10},${sat}%,${light-8}%)"/>`);
-      if(stage>=5) p.push(`<circle cx="${cx}" cy="${cy}" r="${cs*0.5}" fill="hsl(45,80%,65%)"/>`);
+      p.push(`<circle cx="${cx}" cy="${cy}" r="${cs}" fill="${labyrinth?'#E0C878':`hsl(${hue-10},${sat}%,${light-8}%)`}"/>`);
+      if(stage>=5) p.push(`<circle cx="${cx}" cy="${cy}" r="${cs*0.5}" fill="${labyrinth?'#FFF0C0':'hsl(45,80%,65%)'}"/>`);
     }
     p.push(`<path d="M ${cx} ${cy+4*sc} Q ${cx-12*sc} ${cy+2*sc} ${cx-8*sc} ${cy-10*sc}" stroke="${leafCol}" stroke-width="1.5" fill="none" opacity="0.6"/>`);
     p.push(`<path d="M ${cx} ${cy+4*sc} Q ${cx+12*sc} ${cy+2*sc} ${cx+8*sc} ${cy-10*sc}" stroke="${leafCol}" stroke-width="1.5" fill="none" opacity="0.6"/>`);
@@ -528,6 +538,26 @@ function buildRoseCard(plotPk,plotData,plantPk,plantData,regionIdx,bps){
 /* ── main loader ──────────────────────────────────────────────── */
 const PLOT_DISC=[83,82,6,254,46,4,206,230];
 
+async function loadTrophy(){
+  if(!active) return;
+  const info=await conn.getAccountInfo(heartWalkerPda(active.pk)).catch(()=>null);
+  if(!info) return;
+  const d=info.data; let o=8;
+  o+=32;
+  const firstSlot=d.readBigUInt64LE(o);o+=8;
+  const totalHearts=d.readUInt32LE(o);o+=4;
+  const bestAmp=d.readBigUInt64LE(o);o+=8;
+  const fewestWrong=d.readUInt32LE(o);o+=4;
+  const firstSeed=new Uint8Array(d.slice(o,o+32));o+=32;
+  const card=document.createElement("div");
+  card.className="rose-card flowering";
+  card.style.borderColor="#E0C878";
+  card.style.boxShadow="0 0 18px rgba(224,200,120,0.18)";
+  card.style.gridColumn="1/-1";
+  card.innerHTML=`<div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap;padding:16px"><div style="flex-shrink:0">${rosesvg(firstSeed,5,0,160,true)}</div><div style="flex:1;min-width:200px"><div style="font-size:18px;color:#E0C878;margin-bottom:4px">🏆 Your Labyrinth Rose</div><div style="font-size:12px;color:var(--ash);margin-bottom:10px">You reached the heart of Ariadne's Thread. This rose is yours alone — woven from your first victory.</div><div style="display:flex;gap:18px;flex-wrap:wrap;font-size:12px"><div><span style="color:#E0C878;font-size:18px">${totalHearts}</span><br><span style="color:var(--ash)">heart${totalHearts>1?'s':''} reached</span></div><div><span style="color:#E0C878;font-size:18px">×${(Number(bestAmp)/10000).toFixed(1)}</span><br><span style="color:var(--ash)">best amplifier</span></div><div><span style="color:#E0C878;font-size:18px">${fewestWrong}</span><br><span style="color:var(--ash)">fewest wrong turns</span></div></div></div></div>`;
+  $("gallery").prepend(card);
+}
+
 async function loadRoses(){
   if(!active){$("gallery").innerHTML="";return;}
   $("gallery").innerHTML=`<div style="padding:40px 0;text-align:center;color:var(--ash);grid-column:1/-1">loading your roses…</div>`;
@@ -563,6 +593,7 @@ async function loadRoses(){
     $("gallery").innerHTML="";
     if(!cards.length){
       $("empty").style.display="block";
+      await loadTrophy();
       return;
     }
     $("empty").style.display="none";
@@ -573,6 +604,7 @@ async function loadRoses(){
       return bf-af||b.plantData.health-a.plantData.health;
     });
     cards.forEach(c=>$("gallery").appendChild(buildRoseCard(c.plotPk,c.plotData,c.plantPk,c.plantData,c.regionIdx,c.bps)));
+    await loadTrophy();
     refreshEg();
   }catch(e){
     $("gallery").innerHTML=`<div style="padding:40px;color:var(--ember);grid-column:1/-1">could not load roses: ${e.message}</div>`;
