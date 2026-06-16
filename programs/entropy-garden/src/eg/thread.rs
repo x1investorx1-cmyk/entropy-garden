@@ -22,10 +22,10 @@ pub const MAZE_W: u8 = 16;            // maze grid width
 pub const MAZE_H: u8 = 16;            // maze grid height
 pub const PATH_LEN: u8 = 48;          // length of the true path to the heart
 pub const CHECKPOINT_EVERY: u8 = 6;   // lock in pending EG every N steps
-pub const REWARD_STEP_BASE: u64 = 1;  // base EG per correct step (×era×genesis×amplifier)
-pub const HEART_BONUS: u64 = 25;      // big EG payout for reaching the rose
+pub const REWARD_STEP_BP: u64 = 3000; // base EG per step in basis points (3000 = 0.30 EG)
+pub const HEART_BONUS_BP: u64 = 80000; // heart payout in basis points (80000 = 8 EG)
 pub const AMP_STEP_BP: u64 = 800;     // amplifier climbs +8% (800 bp) per correct step
-pub const AMP_MAX_BP: u64 = 50000;    // amplifier caps at ×5.0
+pub const AMP_MAX_BP: u64 = 30000;    // amplifier caps at ×3.0
 pub const REVEAL_DELAY: u64 = 3;      // slots to wait before maze reveal (future blockhash)
 pub const REVEAL_MAX: u64 = 150;      // entry_slot+this must still be resolvable
 
@@ -287,13 +287,13 @@ pub fn step_thread(ctx: Context<StepThread>, direction: u8) -> Result<()> {
         t.pos += 1;
         // amplifier climbs
         t.amplifier_bp = (t.amplifier_bp + AMP_STEP_BP).min(AMP_MAX_BP);
-        // accrue pending EG = base × amplifier
-        let step_eg = (REWARD_STEP_BASE as u128 * t.amplifier_bp as u128 / 10000u128) as u64;
-        t.pending_eg = t.pending_eg.saturating_add(step_eg.max(1));
+        // accrue pending EG (in basis points) = base_bp × amplifier
+        let step_bp = (REWARD_STEP_BP as u128 * t.amplifier_bp as u128 / 10000u128) as u64;
+        t.pending_eg = t.pending_eg.saturating_add(step_bp.max(1));
 
         // reached the heart?
         if t.pos >= PATH_LEN {
-            t.pending_eg = t.pending_eg.saturating_add(HEART_BONUS);
+            t.pending_eg = t.pending_eg.saturating_add(HEART_BONUS_BP);
             t.reached_heart = true;
             mint_pending(&mut ctx.accounts.eg_config, &ctx.accounts.eg_mint,
                 &ctx.accounts.eg_mint_auth, &ctx.accounts.walker_eg,
@@ -345,7 +345,10 @@ fn mint_pending<'info>(
     t: &mut Thread,
 ) -> Result<()> {
     if paused || t.pending_eg == 0 { t.pending_eg = 0; return Ok(()); }
-    let amount = eg_config.reward_amount(t.pending_eg, now);
+    // pending_eg is in basis points (10000 bp = 1 EG); convert to whole EG
+    let whole_eg = t.pending_eg / 10000;
+    if whole_eg == 0 { return Ok(()); } // sub-1-EG pending carries forward implicitly; clear it
+    let amount = eg_config.reward_amount(whole_eg, now);
     if amount > 0 {
         let seeds: &[&[u8]] = &[b"eg_mint_auth", &[bump]];
         let signer = &[seeds];
