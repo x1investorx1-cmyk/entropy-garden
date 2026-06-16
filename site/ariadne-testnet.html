@@ -171,6 +171,19 @@ async function connectBackpack(){const bp=window.backpack?.solana??window.backpa
   return {pk,sign:async tx=>{tx.feePayer=pk;tx.recentBlockhash=(await conn.getLatestBlockhash()).blockhash;const res=await bp.signAndSendTransaction(tx);return res?.signature??res;}};}
 
 let active=null, maze=null, thread=null;
+let discovered=[]; // directions proven correct for the CURRENT maze, by step index
+let deepest=0;     // deepest step ever reached this maze
+
+function seedKey(){ return thread&&thread.seed ? "eg_thread_"+Array.from(thread.seed).slice(0,8).join("") : null; }
+function loadDiscovered(){
+  discovered=[]; deepest=0;
+  const k=seedKey(); if(!k) return;
+  try{ const raw=localStorage.getItem(k); if(raw){ const o=JSON.parse(raw); discovered=o.d||[]; deepest=o.deep||0; } }catch(e){}
+}
+function saveDiscovered(){
+  const k=seedKey(); if(!k) return;
+  try{ localStorage.setItem(k, JSON.stringify({d:discovered, deep:deepest})); }catch(e){}
+}
 function onConnected(name){
   $("who").textContent=active.pk.toBase58().slice(0,6)+"…"+active.pk.toBase58().slice(-4);
   $("connectBtn").textContent="connected · "+name;
@@ -232,7 +245,7 @@ async function loadThread(){
   const revealed=d[o++],pos=d[o++],lastCp=d[o++],amp=Number(d.readBigUInt64LE(o));o+=8;const pending=Number(d.readBigUInt64LE(o));o+=8;
   const heart=d[o++],actv=d[o++];
   thread={entrySlot,seed,revealed:!!revealed,pos,lastCp,amp,pending,heart:!!heart,active:!!actv};
-  if(thread.active&&thread.revealed){maze=truePath(thread.seed);renderPlaying();}
+  if(thread.active&&thread.revealed){maze=truePath(thread.seed);loadDiscovered();renderPlaying();}
   else if(thread.active&&!thread.revealed){renderNeedReveal();}
   else renderIdle();
 }
@@ -252,6 +265,21 @@ function drawMaze(){
     const isCp=i>0 && i%6===0;
     cellsHtml+=`<rect x="${pad+cx*S}" y="${pad+cy*S}" width="${S-2}" height="${S-2}" rx="3" fill="${isCur?'var(--leaf)':isCp?'#2a4a2a':'#1a2a1a'}" opacity="${isCur?1:0.7}"/>`;
   }
+  // discovered path AHEAD of current position (proven correct, faint gold thread)
+  // reconstruct cells from gate using the discovered directions
+  let discHtml="";
+  if(discovered.length){
+    let dx=0,dy=0;
+    for(let i=0;i<deepest && i<discovered.length;i++){
+      const d=discovered[i];
+      if(d===undefined) break;
+      const [nx,ny]=stepXY(dx,dy,d);
+      dx=nx;dy=ny;
+      if(i>=thread.pos){ // only show the part ahead of where we are now
+        discHtml+=`<rect x="${pad+dx*S}" y="${pad+dy*S}" width="${S-2}" height="${S-2}" rx="3" fill="none" stroke="var(--gold)" stroke-width="1" stroke-dasharray="2" opacity="0.5"/>`;
+      }
+    }
+  }
   // gate marker and heart marker
   const [hx,hy]=maze.cells[maze.cells.length-1];
   const gate=`<rect x="${pad}" y="${pad}" width="${S-2}" height="${S-2}" rx="3" fill="none" stroke="var(--ash)" stroke-width="1" stroke-dasharray="2"/>`;
@@ -260,7 +288,7 @@ function drawMaze(){
   let grid="";
   for(let i=0;i<=MAZE_W;i++){grid+=`<line x1="${pad+i*S}" y1="${pad}" x2="${pad+i*S}" y2="${pad+MAZE_H*S}" stroke="#152015" stroke-width="0.5"/>`;
     grid+=`<line x1="${pad}" y1="${pad+i*S}" x2="${pad+MAZE_W*S}" y2="${pad+i*S}" stroke="#152015" stroke-width="0.5"/>`;}
-  $("maze").outerHTML=`<svg id="maze" width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}">${grid}${gate}${cellsHtml}${heart}</svg>`;
+  $("maze").outerHTML=`<svg id="maze" width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}">${grid}${discHtml}${gate}${cellsHtml}${heart}</svg>`;
 }
 
 function renderIdle(){
@@ -279,11 +307,29 @@ function renderNeedReveal(){
 }
 function renderPlaying(){
   drawMaze();
-  $("controls").innerHTML='<p style="font-size:12px;color:var(--ash);text-align:center">walk the thread — choose your direction</p>';
+  const known = discovered[thread.pos]; // do we know the next step from here?
+  const atFrontier = thread.pos >= deepest;
+  let msg;
+  if(known!==undefined && !atFrontier){
+    msg='<p style="font-size:12px;color:var(--gold);text-align:center">retrace the thread — the proven way glows</p>';
+  } else {
+    msg='<p style="font-size:12px;color:var(--ash);text-align:center">the frontier — choose blind, find the way</p>';
+  }
+  $("controls").innerHTML=msg;
   $("abandonBtn").style.display="";
   setDpad(true);
+  hintDpad();
   updatePanel(thread.amp/10000, thread.pending, thread.pos, thread.lastCp, wrongCount);
   if(thread.heart) renderHeart();
+}
+function hintDpad(){
+  // highlight the proven next direction if we've been here before
+  document.querySelectorAll(".dpad button").forEach(b=>{b.style.borderColor="";b.style.color="";b.style.boxShadow="";});
+  const known = discovered[thread.pos];
+  if(known!==undefined && thread.pos < deepest){
+    const btn=document.querySelector(`.dpad button[data-dir="${known}"]`);
+    if(btn){ btn.style.borderColor="var(--gold)"; btn.style.color="var(--gold)"; btn.style.boxShadow="0 0 8px rgba(224,200,120,0.4)"; }
+  }
 }
 function renderHeart(){
   $("maze").outerHTML='<div id="maze" style="text-align:center"><div style="font-size:48px" class="heart-glow">🌹</div><div style="color:var(--rose);font-size:16px;margin-top:8px">You reached the heart.</div><div style="color:var(--ash);font-size:12px;margin-top:4px">The thread is complete. The rose is yours.</div></div>';
@@ -336,6 +382,10 @@ async function doStep(dir){
     ],[...D.step,dir],"step "+"NESW"[dir]);
     await loadThread();
     if(thread.pos>prevPos){
+      // remember this proven step (index prevPos -> dir)
+      discovered[prevPos]=dir;
+      if(thread.pos>deepest) deepest=thread.pos;
+      saveDiscovered();
       $("mazeWrap").classList.remove("flash-correct");void $("mazeWrap").offsetWidth;$("mazeWrap").classList.add("flash-correct");
       if(thread.pos%6===0&&!thread.heart) log("checkpoint! pending EG locked in 🌿","ok");
       else if(thread.heart) log("THE HEART. the rose is yours. 🌹","gold");
