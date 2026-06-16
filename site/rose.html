@@ -126,6 +126,7 @@ const IX={tend:[169,80,232,45,188,3,247,112],compost:[150,11,76,97,196,3,122,103
 const te=s=>new TextEncoder().encode(s);
 const pda=s=>PublicKey.findProgramAddressSync(s,PID)[0];
 function ataKey(o){return PublicKey.findProgramAddressSync([o.toBytes(),TOKEN_PROG.toBytes(),EG_MINT.toBytes()],ATA_PROG)[0];}
+function heartWalkerPda(o){return PublicKey.findProgramAddressSync([te("heartwalker"),o.toBytes()],PID)[0];}
 function dv(buf){return new DataView(buf.buffer??buf);}
 const $=id=>document.getElementById(id);
 const log=(m,c="")=>{const d=document.createElement("div");d.className=c;d.textContent="› "+m;$("log").prepend(d);};
