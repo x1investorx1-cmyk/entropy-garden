@@ -551,6 +551,7 @@ async function loadTrophy(){
   const bestAmp=d.readBigUInt64LE(o);o+=8;
   const fewestWrong=d.readUInt32LE(o);o+=4;
   const firstSeed=new Uint8Array(d.slice(o,o+32));o+=32;
+  if(totalHearts < 1 || firstSlot === 0n) return; // only show after a real heart-reach
   const card=document.createElement("div");
   card.className="rose-card flowering";
   card.style.borderColor="#E0C878";
