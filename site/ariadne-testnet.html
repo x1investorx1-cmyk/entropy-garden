@@ -333,7 +333,7 @@ async function doStep(dir){
       {pubkey:EG_AUTH,isSigner:false,isWritable:false},{pubkey:ataKey(active.pk),isSigner:false,isWritable:true},
       {pubkey:TREASURY,isSigner:false,isWritable:true},{pubkey:TOKEN_PROGRAM,isSigner:false,isWritable:false},
       {pubkey:ATA_PROGRAM,isSigner:false,isWritable:false},{pubkey:SystemProgram.programId,isSigner:false,isWritable:false},
-    ],D.step,"step "+"NESW"[dir]);
+    ],[...D.step,dir],"step "+"NESW"[dir]);
     await loadThread();
     if(thread.pos>prevPos){
       $("mazeWrap").classList.remove("flash-correct");void $("mazeWrap").offsetWidth;$("mazeWrap").classList.add("flash-correct");
