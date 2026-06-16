@@ -11,6 +11,7 @@ use eg::instructions::*;
 use eg::skyread::*;
 use eg::thread::*;
 use eg::pulse::*;
+use eg::carbon::*;
 use eg::metadata::*;
 use state::WeatherChannel;
 
@@ -81,6 +82,16 @@ pub mod entropy_garden {
     }
     pub fn resolve_pulse(ctx: Context<ResolvePulse>) -> Result<()> {
         eg::pulse::resolve_pulse(ctx)
+    }
+
+    pub fn init_carbon_sink(ctx: Context<InitCarbonSink>) -> Result<()> {
+        eg::carbon::init_carbon_sink(ctx)
+    }
+    pub fn sequester(ctx: Context<Sequester>) -> Result<()> {
+        eg::carbon::sequester(ctx)
+    }
+    pub fn harvest_carbon(ctx: Context<HarvestCarbon>) -> Result<()> {
+        eg::carbon::harvest_carbon(ctx)
     }
 
     pub fn enter_maze(ctx: Context<EnterMaze>) -> Result<()> {
