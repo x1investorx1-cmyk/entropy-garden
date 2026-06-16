@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Your Roses — Entropy Garden</title>
+<title>Your Plants — Entropy Garden</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌹</text></svg>">
 <style>
 :root{
@@ -83,8 +83,8 @@ dialog h3{font-weight:400;margin-bottom:14px}
 
 <header>
   <span class="eg-badge">EG: <b id="egBal">—</b></span>
-  <h1>Your <em>roses</em></h1>
-  <p class="sub">Every living plant is a rose. Each one is unique — grown from its on-chain genome, shaped by the weather it survived.</p>
+  <h1>Your <em>plants</em></h1>
+  <p class="sub">Every living plant is unique — grown from its on-chain genome, rendered as a rose, shaped by the weather it survived.</p>
 </header>
 
 <div class="connect-bar">
@@ -93,7 +93,7 @@ dialog h3{font-weight:400;margin-bottom:14px}
 </div>
 
 <div id="gallery"></div>
-<div id="empty"><h2>No living plants yet</h2><p>Go to <a href="/garden.html" style="color:var(--leaf)">your garden</a> to claim a plot and plant a seed — then come back to tend your rose.</p></div>
+<div id="empty"><h2>No living plants yet</h2><p>Go to <a href="/garden.html" style="color:var(--leaf)">your garden</a> to claim a plot and plant a seed — then come back to tend your plant.</p></div>
 
 <div id="log"></div>
 
@@ -514,7 +514,7 @@ function buildRoseCard(plotPk,plotData,plantPk,plantData,regionIdx,bps){
     actions.appendChild(cb);
   } else {
     const tb=document.createElement("button");
-    tb.textContent="tend your rose";
+    tb.textContent="tend your plant";
     tb.onclick=()=>send(ixTend(active.pk,plotPk,plantPk,regionIdx),"tend");
     actions.appendChild(tb);
 
@@ -563,7 +563,7 @@ async function loadTrophy(){
 
 async function loadRoses(){
   if(!active){$("gallery").innerHTML="";return;}
-  $("gallery").innerHTML=`<div style="padding:40px 0;text-align:center;color:var(--ash);grid-column:1/-1">loading your roses…</div>`;
+  $("gallery").innerHTML=`<div style="padding:40px 0;text-align:center;color:var(--ash);grid-column:1/-1">loading your plants…</div>`;
 
   try{
     const feedInfos=await conn.getMultipleAccountsInfo([FEED[0],FEED[1]]);

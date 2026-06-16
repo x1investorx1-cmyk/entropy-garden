@@ -60,7 +60,7 @@ dialog h3{font-family:var(--disp);font-weight:400;margin-bottom:14px}
 </style>
 </head>
 <body>
-<p class="eyebrow"><a href="/" style="border:0">← observatory</a> · <a href="/map.html" style="border:0">the map</a> · <a href="/tree.html" style="border:0">the tree</a> · <a href="/skyread-mainnet.html" style="border:0;color:#9FD27E">🌥️ read the sky</a> · <a href="/rose.html" style="border:0;color:#E48AAE">🌹 your roses</a> · <a href="/ariadne.html" style="border:0;color:#E0C878">🧵 ariadne</a></p>
+<p class="eyebrow"><a href="/" style="border:0">← observatory</a> · <a href="/map.html" style="border:0">the map</a> · <a href="/tree.html" style="border:0">the tree</a> · <a href="/skyread-mainnet.html" style="border:0;color:#9FD27E">🌥️ read the sky</a> · <a href="/rose.html" style="border:0;color:#E48AAE">🌹 your plants</a> · <a href="/ariadne.html" style="border:0;color:#E0C878">🧵 ariadne</a></p>
 <h1>your <em>garden</em></h1>
 <p style="color:var(--ash);font-size:13.5px">Claim land. Plant a seed. Keep it alive through real weather. <b style="color:var(--bone)">Make sure your wallet is set to the X1 network</b> (RPC: rpc.mainnet.x1.xyz).</p>
 
@@ -566,7 +566,7 @@ async function refreshMine(){
         // compact view: rose thumbnail on top, info below (stacks cleanly in narrow cells)
         const rsvg = pd.genome ? rosesvg(pd.genome, dead?0:pd.stage, Number(pd.stress||0n), 72) : "";
         cell.innerHTML = `<div style="text-align:center">
-          <a href="/rose.html" title="tend your rose" style="display:block;opacity:${dead?0.4:1}">${rsvg}</a>
+          <a href="/rose.html" title="tend your plant" style="display:block;opacity:${dead?0.4:1}">${rsvg}</a>
           <div style="font-size:11px;color:var(--ash);margin-top:2px">${dead?"☠ fallen":"stage "+pd.stage}</div>
           <span class="hp" style="margin:4px auto;max-width:80%"><i class="${hpPct<30?'low':''}" style="width:${hpPct}%"></i></span>
           ${stormClue}
