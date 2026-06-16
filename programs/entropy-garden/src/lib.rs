@@ -10,6 +10,7 @@ use instructions::*;
 use eg::instructions::*;
 use eg::skyread::*;
 use eg::thread::*;
+use eg::pulse::*;
 use eg::metadata::*;
 use state::WeatherChannel;
 
@@ -73,6 +74,13 @@ pub mod entropy_garden {
 
     pub fn initialize_token_metadata(ctx: Context<InitializeTokenMetadata>, name: String, symbol: String, uri: String) -> Result<()> {
         eg::metadata::initialize_token_metadata(ctx, name, symbol, uri)
+    }
+
+    pub fn commit_pulse(ctx: Context<CommitPulse>, predicted_band: u8, window_slots: u64, commit_slot: u64) -> Result<()> {
+        eg::pulse::commit_pulse(ctx, predicted_band, window_slots, commit_slot)
+    }
+    pub fn resolve_pulse(ctx: Context<ResolvePulse>) -> Result<()> {
+        eg::pulse::resolve_pulse(ctx)
     }
 
     pub fn enter_maze(ctx: Context<EnterMaze>) -> Result<()> {
