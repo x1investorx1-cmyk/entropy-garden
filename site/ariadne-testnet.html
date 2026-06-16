@@ -135,7 +135,10 @@ const $=id=>document.getElementById(id);
 const log=(m,c="")=>{const d=document.createElement("div");d.className=c;d.textContent="› "+m;$("log").prepend(d);};
 
 const MAZE_W=16,MAZE_H=16,PATH_LEN=48;
-function keccakStep(state){const h=sha3.keccak256.arrayBuffer(state);state.set(new Uint8Array(h).slice(0,32));return state[0];}
+const _keccak = (typeof keccak256!=="undefined") ? keccak256
+              : (typeof sha3!=="undefined" && sha3.keccak256) ? sha3.keccak256
+              : (window.keccak256 || (window.sha3 && window.sha3.keccak256));
+function keccakStep(state){const h=_keccak.arrayBuffer(state);state.set(new Uint8Array(h).slice(0,32));return state[0];}
 function stepXY(x,y,d){return d===0?[x,y-1]:d===1?[x+1,y]:d===2?[x,y+1]:[x-1,y];}
 function pickDistinct(order,k){const base=[0,1,2,3],seen=[0,0,0,0],out=[0,0,0,0];let i=0;
   for(const o of order)if(!seen[o]){seen[o]=1;out[i++]=base[o];}
