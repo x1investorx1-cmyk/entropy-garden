@@ -20,7 +20,7 @@
 html{background:var(--loam)}
 body{
   color:var(--bone); font-family:var(--mono); font-size:15px; line-height:1.65;
-  max-width:880px; margin:0 auto; padding:56px 24px 96px;
+  max-width:1080px; margin:0 auto; padding:48px 28px 80px;
   background:
     radial-gradient(1300px 620px at var(--sun-x,70%) -12%, var(--sky-glow,rgba(143,188,121,.06)), transparent 62%),
     linear-gradient(180deg, var(--sky-top,#0B100C) 0%, var(--loam) 60%);
@@ -40,7 +40,7 @@ h1{
   line-height:.98; letter-spacing:-.015em; margin:14px 0 22px;
 }
 h1 em{font-style:italic; color:var(--leaf); font-weight:300}
-.thesis{max-width:56ch; color:var(--bone)}
+.thesis{max-width:78ch; color:var(--bone); font-size:16px}
 .thesis b{color:var(--leaf); font-weight:500}
 .liveline{
   display:flex; flex-wrap:wrap; gap:10px 26px; align-items:baseline;
@@ -96,7 +96,7 @@ h1 em{font-style:italic; color:var(--leaf); font-weight:300}
 .next{margin-top:64px; border:1px solid var(--hairline); padding:30px 26px; background:linear-gradient(180deg,rgba(20,26,19,.5),transparent)}
 .next .label{color:var(--ash); font-size:11px; letter-spacing:.28em; text-transform:uppercase; margin-bottom:14px}
 .next h3{font-family:var(--disp); font-weight:400; font-size:24px; margin-bottom:10px}
-.next p{color:var(--ash); font-size:13.5px; max-width:64ch; margin-bottom:12px}
+.next p{color:var(--ash); font-size:13.5px; max-width:82ch; margin-bottom:12px}
 .next p b{color:var(--bone); font-weight:500}
 .next .loop{color:var(--leaf); font-family:var(--disp); font-style:italic; font-size:16px; margin-top:4px}
 .next .phases{display:grid; gap:12px; margin-top:18px}
@@ -116,6 +116,12 @@ footer{margin-top:84px; padding-top:20px; border-top:1px solid var(--hairline); 
 footer .pid{word-break:break-all; color:var(--bone)}
 .copy{cursor:pointer; color:var(--leaf); border-bottom:1px dashed var(--hairline)}
 .err{color:var(--ember)}
+.howto{display:grid; grid-template-columns:1fr 1fr; gap:30px 48px; margin:40px 0 8px; padding:26px 0; border-top:1px solid var(--hairline); border-bottom:1px solid var(--hairline)}
+.howto-col h3{font-family:var(--disp); font-weight:400; font-size:18px; color:var(--bone); margin-bottom:14px}
+.howto-col ol, .howto-col ul{margin:0; padding-left:20px; color:var(--ash); font-size:13.5px; line-height:1.7}
+.howto-col li{margin-bottom:9px}
+.howto-col b{color:var(--bone)}
+@media(max-width:760px){.howto{grid-template-columns:1fr; gap:24px}}
 </style>
 </head>
 <body>
@@ -134,6 +140,28 @@ footer .pid{word-break:break-all; color:var(--bone)}
   <span><span class="dot"></span><span id="status">contacting the garden…</span></span>
   <span>slot <span id="slot">—</span></span>
   <span>reads every 20s from rpc.mainnet.x1.xyz</span>
+</div>
+
+
+<div class="howto">
+  <div class="howto-col">
+    <h3>How to play</h3>
+    <ol>
+      <li><b>Claim a plot</b> in the Dry Field or the Rainline — each region reads a different live channel of X1.</li>
+      <li><b>Plant a seed.</b> Its genome sets the sky it loves; it blooms as a unique red rose.</li>
+      <li><b>Tend it</b> through real weather. Keep it alive as the chain storms and calms.</li>
+      <li><b>Harvest</b> at full bloom — or <b>compost</b> to return nutrients to the shared soil.</li>
+    </ol>
+  </div>
+  <div class="howto-col">
+    <h3>How to earn EG</h3>
+    <ul>
+      <li><b>🌱 Garden</b> — plant, tend, harvest. Steady mining; streaks multiply your reward.</li>
+      <li><b>🌥️ Read the sky</b> — forecast storm or calm and read it right for bonus EG. Pure skill.</li>
+      <li><b>🌩️ Chase storms</b> — plants that survive harsh weather pay a harvest bonus, up to 3×.</li>
+      <li><b>🧵 Walk Ariadne's Thread</b> — trace the labyrinth to the rose at its heart. Hard, but it pays — and crowns you a trophy.</li>
+    </ul>
+  </div>
 </div>
 
 <p class="section-label">Instruments — live weather</p>
