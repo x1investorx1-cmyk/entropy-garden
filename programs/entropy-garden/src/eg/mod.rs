@@ -91,3 +91,4 @@ impl EgConfig {
 pub mod instructions;
 pub mod skyread;
 pub mod thread;
+pub mod metadata;

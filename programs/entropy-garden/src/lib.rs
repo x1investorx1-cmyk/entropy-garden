@@ -10,6 +10,7 @@ use instructions::*;
 use eg::instructions::*;
 use eg::skyread::*;
 use eg::thread::*;
+use eg::metadata::*;
 use state::WeatherChannel;
 
 declare_id!("8gTX3w2mAkKhGip9Mmvhb3gkcETugkfLEvmT4BNTh1By");
@@ -68,6 +69,10 @@ pub mod entropy_garden {
 
     pub fn renounce_mint_authority(ctx: Context<RenounceAuthority>) -> Result<()> {
         eg::instructions::renounce_mint_authority(ctx)
+    }
+
+    pub fn initialize_token_metadata(ctx: Context<InitializeTokenMetadata>, name: String, symbol: String, uri: String) -> Result<()> {
+        eg::metadata::initialize_token_metadata(ctx, name, symbol, uri)
     }
 
     pub fn enter_maze(ctx: Context<EnterMaze>) -> Result<()> {
