@@ -34,13 +34,13 @@ a:hover{border-bottom-color:var(--leaf)}
   border:1px solid var(--leaf); text-transform:lowercase;}
 .enter:hover{background:transparent; color:var(--leaf)}
 .enter small{display:block; font-size:10.5px; letter-spacing:.2em; opacity:.75; margin-top:2px; text-transform:uppercase}
-.eyebrow{color:var(--bone); font-size:11px; letter-spacing:.28em; text-transform:uppercase}
+.eyebrow{color:var(--bone); font-size:11px; letter-spacing:.28em; text-transform:uppercase; text-align:center}
 h1{
   font-family:var(--disp); font-weight:340; font-size:clamp(44px,9vw,82px);
-  line-height:.98; letter-spacing:-.015em; margin:14px 0 22px;
+  line-height:.98; letter-spacing:-.015em; margin:14px 0 22px; text-align:center;
 }
 h1 em{font-style:italic; color:var(--leaf); font-weight:300}
-.thesis{max-width:78ch; color:var(--bone); font-size:16px}
+.thesis{max-width:74ch; color:var(--bone); font-size:16px; text-align:center; margin:0 auto}
 .thesis b{color:var(--leaf); font-weight:500}
 .liveline{
   display:flex; flex-wrap:wrap; gap:10px 26px; align-items:baseline;
@@ -96,7 +96,7 @@ h1 em{font-style:italic; color:var(--leaf); font-weight:300}
 .next{margin-top:64px; border:1px solid var(--hairline); padding:30px 26px; background:linear-gradient(180deg,rgba(20,26,19,.5),transparent)}
 .next .label{color:var(--ash); font-size:11px; letter-spacing:.28em; text-transform:uppercase; margin-bottom:14px}
 .next h3{font-family:var(--disp); font-weight:400; font-size:24px; margin-bottom:10px}
-.next p{color:var(--ash); font-size:13.5px; max-width:82ch; margin-bottom:12px}
+.next p{color:var(--ash); font-size:13.5px; max-width:90ch; margin-bottom:12px}
 .next p b{color:var(--bone); font-weight:500}
 .next .loop{color:var(--leaf); font-family:var(--disp); font-style:italic; font-size:16px; margin-top:4px}
 .next .phases{display:grid; gap:12px; margin-top:18px}
@@ -122,6 +122,8 @@ footer .pid{word-break:break-all; color:var(--bone)}
 .howto-col li{margin-bottom:9px}
 .howto-col b{color:var(--bone)}
 @media(max-width:760px){.howto{grid-template-columns:1fr; gap:24px}}
+.quest-nav{display:flex; flex-wrap:wrap; justify-content:center; gap:12px 22px; margin:24px auto 8px; max-width:760px}
+.quest-nav a{color:var(--leaf); font-size:14px; white-space:nowrap}
 </style>
 </head>
 <body>
@@ -129,12 +131,16 @@ footer .pid{word-break:break-all; color:var(--bone)}
 <p class="eyebrow">A living experiment on <span style="color:var(--leaf)">X1</span> · est. genesis, June 2026</p>
 <h1>entropy<br><em>garden</em></h1>
 <p class="thesis">A garden whose weather is the blockchain itself. Every storm on this page is <b>real traffic on X1, right now</b> — fee pressure becomes drought, transaction flow becomes rain. Plants will live and die by it. Nothing here is simulated.</p>
-<a href="/map.html" style="display:inline-block;margin:26px 14px 0 0;color:var(--leaf)">the living map →</a>
-<a href="/skyread-mainnet.html" style="display:inline-block;margin:26px 14px 0 0;color:var(--leaf)">🌥️ read the sky →</a>
-<a href="/rose.html" style="display:inline-block;margin:26px 14px 0 0;color:var(--leaf)">🌹 your roses →</a>
-<a href="/ariadne.html" style="display:inline-block;margin:26px 14px 0 0;color:#E0C878">🧵 ariadne's thread →</a>
-<a href="/tree.html" style="display:inline-block;margin:26px 14px 0 0;color:var(--leaf)">the tree →</a>
+<div class="quest-nav">
+<a href="/map.html">the living map →</a>
+<a href="/skyread-mainnet.html">🌥️ read the sky →</a>
+<a href="/rose.html">🌹 your roses →</a>
+<a href="/ariadne.html" style="color:#E0C878">🧵 ariadne's thread →</a>
+<a href="/tree.html">the tree →</a>
+</div>
+<div style="text-align:center">
 <a class="enter" href="/garden.html" style="border-bottom:1px solid var(--leaf)">enter the garden →<small>claim a plot · plant · survive the weather</small></a>
+</div>
 
 <div class="liveline">
   <span><span class="dot"></span><span id="status">contacting the garden…</span></span>
