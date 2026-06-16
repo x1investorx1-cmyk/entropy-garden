@@ -1,0 +1,60 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <!-- dark background -->
+  <rect width="512" height="512" rx="96" fill="#0B100C"/>
+  <!-- subtle green ring -->
+  <circle cx="256" cy="256" r="220" fill="none" stroke="#243224" stroke-width="3"/>
+
+  <!-- stem -->
+  <line x1="256" y1="278" x2="256" y2="390" stroke="#2d5a1f" stroke-width="14" stroke-linecap="round"/>
+  <!-- left leaf -->
+  <path d="M256 355 Q210 330 195 355 Q220 365 256 355 Z" fill="#2d5a1f" opacity="0.9"/>
+  <!-- right leaf -->
+  <path d="M256 335 Q302 310 317 335 Q292 345 256 335 Z" fill="#2d5a1f" opacity="0.8"/>
+
+  <!-- outer petals (6) — deep red -->
+  <g fill="#c0182a" stroke="#8b0000" stroke-width="1.5">
+    <path d="M256 278 C230 248,210 208,230 178 C248 208,258 246,256 278 Z"/>
+    <path d="M256 278 C288 253,310 216,294 184 C272 212,258 250,256 278 Z"/>
+    <path d="M256 278 C222 273,186 288,188 320 C212 302,240 284,256 278 Z"/>
+    <path d="M256 278 C290 276,326 288,326 320 C302 302,270 286,256 278 Z"/>
+    <path d="M256 278 C236 304,224 342,248 358 C256 332,258 302,256 278 Z"/>
+    <path d="M256 278 C276 304,290 341,268 358 C260 332,258 302,256 278 Z"/>
+  </g>
+
+  <!-- mid petals (6) — brighter red -->
+  <g fill="#e0202e" stroke="#c0182a" stroke-width="1" opacity="0.92">
+    <path d="M256 278 C242 256,228 232,242 213 C252 233,256 260,256 278 Z"/>
+    <path d="M256 278 C270 256,286 233,274 213 C264 233,256 260,256 278 Z"/>
+    <path d="M256 278 C236 276,214 286,216 306 C232 294,248 282,256 278 Z"/>
+    <path d="M256 278 C276 276,298 286,296 306 C280 294,264 282,256 278 Z"/>
+    <path d="M256 278 C248 296,244 318,256 328 C258 316,258 296,256 278 Z"/>
+    <path d="M256 278 C264 296,268 318,256 328 C254 316,254 296,256 278 Z"/>
+  </g>
+
+  <!-- inner petals (5) — light rose -->
+  <g fill="#f0606a" stroke="#e0202e" stroke-width="0.8" opacity="0.88">
+    <path d="M256 278 C248 266,242 252,250 244 C254 254,256 268,256 278 Z"/>
+    <path d="M256 278 C264 266,270 253,264 244 C260 254,256 268,256 278 Z"/>
+    <path d="M256 278 C244 276,234 282,236 292 C244 286,252 280,256 278 Z"/>
+    <path d="M256 278 C268 276,278 283,276 292 C268 286,260 280,256 278 Z"/>
+    <path d="M256 278 C254 286,252 296,258 300 C258 294,258 284,256 278 Z"/>
+  </g>
+
+  <!-- golden center -->
+  <circle cx="256" cy="278" r="18" fill="#E0C878"/>
+  <circle cx="256" cy="278" r="9" fill="#FFF0C0"/>
+
+  <!-- golden thread-veins -->
+  <g stroke="#E0C878" stroke-width="0.8" fill="none" opacity="0.5">
+    <line x1="256" y1="278" x2="234" y2="186"/>
+    <line x1="256" y1="278" x2="280" y2="187"/>
+    <line x1="256" y1="278" x2="196" y2="288"/>
+    <line x1="256" y1="278" x2="318" y2="290"/>
+    <line x1="256" y1="278" x2="250" y2="340"/>
+    <line x1="256" y1="278" x2="264" y2="340"/>
+  </g>
+
+  <!-- EG text -->
+  <text x="256" y="468" font-family="Georgia, serif" font-size="52" font-weight="400"
+        fill="#9FD27E" text-anchor="middle" letter-spacing="8">EG</text>
+</svg>

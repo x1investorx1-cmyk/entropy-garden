@@ -1,0 +1,12 @@
+{
+  "name": "Entropy Garden",
+  "symbol": "EG",
+  "description": "A garden whose weather is the blockchain itself. Mine EG by tending plants, reading the sky, chasing storms, and walking Ariadne's Thread. Nobody buys in — everybody grows in.",
+  "image": "https://www.entropygarden.xyz/eg-token.png",
+  "external_url": "https://www.entropygarden.xyz",
+  "attributes": [
+    { "trait_type": "network", "value": "X1 Mainnet" },
+    { "trait_type": "type", "value": "Garden Token" },
+    { "trait_type": "supply", "value": "1,000,000,000" }
+  ]
+}
