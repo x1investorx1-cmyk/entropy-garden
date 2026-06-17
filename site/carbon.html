@@ -48,6 +48,8 @@ h1 em{color:var(--leaf);font-style:italic}
 .actions{display:flex;gap:8px;flex-wrap:wrap}
 .empty{text-align:center;color:var(--ash);font-size:13px;padding:60px 20px;grid-column:1/-1}
 #log{margin-top:20px;font-size:11px;color:var(--ash);font-family:monospace;min-height:18px}
+.wopt{display:block;width:100%;text-align:left;margin-bottom:10px;padding:12px 16px;font-size:14px;border:1px solid var(--border);background:transparent;color:var(--leaf);cursor:pointer;font-family:inherit}
+.wopt:hover{background:var(--border)}
 </style>
 </head><body>
 <script src="https://unpkg.com/@solana/web3.js@1.95.8/lib/index.iife.min.js"></script>
@@ -57,10 +59,15 @@ h1 em{color:var(--leaf);font-style:italic}
 <p class="tagline">Plants sequester chain activity as biomass over time — roots draw from fee pressure, leaves from throughput. Open a carbon sink for any plant you own, poke it to accumulate, harvest when ready. The slower the chain, the deeper the roots grow when it wakes.</p>
 
 <div class="wallet-bar">
-  <button class="btn" id="connect-btn" onclick="connectWallet()">connect wallet</button>
+  <button class="btn" id="connect-btn">connect wallet</button>
   <span id="wallet-addr"></span>
   <span id="eg-bal"></span>
 </div>
+<dialog id="walletDialog" style="background:var(--surface);border:1px solid var(--border);color:var(--bone);padding:24px;max-width:320px;border-radius:8px">
+  <h3 style="font-weight:400;margin-bottom:16px;color:var(--leaf)">choose a wallet</h3>
+  <div id="walletList"></div>
+  <button class="btn" onclick="walletDialog.close()" style="margin-top:8px">cancel</button>
+</dialog>
 
 <div class="explainer">
   <div>
@@ -93,46 +100,122 @@ const feeRid=new Uint8Array([0,0]),tpsRid=new Uint8Array([1,0]);
 const FEE_FEED=pda([te("weather"),feeRid]),TPS_FEED=pda([te("weather"),tpsRid]);
 const ataKey=o=>solanaWeb3.PublicKey.findProgramAddressSync([o.toBytes(),TOKEN_PROGRAM.toBytes(),EG_MINT.toBytes()],ATA_PROGRAM)[0];
 
+
+// ── plot/plant decoders (mirrors rose.html, the proven approach) ──
+const PLOT_DISC=[83,82,6,254,46,4,206,230];
+function base58(bytes){const A="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";let x=BigInt(0);for(const b of bytes)x=(x<<8n)+BigInt(b);let s="";while(x>0n){s=A[Number(x%58n)]+s;x/=58n;}return s||"1";}
+function dv(buf){return new DataView(buf.buffer,buf.byteOffset,buf.byteLength);}
+function decPlot(buf){
+  const d=dv(buf);let o=8;
+  const owner=new solanaWeb3.PublicKey(buf.slice(o,o+32));o+=32;
+  const region=new solanaWeb3.PublicKey(buf.slice(o,o+32));o+=32;
+  const plotIndex=d.getUint32(o,true);o+=4;
+  const soil=d.getBigUint64(o,true);o+=8;
+  const plants=[];
+  for(let i=0;i<6;i++){const tag=d.getUint8(o);o+=1;
+    if(tag){plants.push(new solanaWeb3.PublicKey(buf.slice(o,o+32)));o+=32;}else plants.push(null);}
+  return{owner,region,plotIndex,soil,plants};
+}
+function decPlant(buf){
+  const d=dv(buf);
+  const genome=new Uint8Array(buf.slice(43,75));
+  return{genome,slotIndex:d.getUint8(40),health:d.getUint16(93,true),
+    stage:d.getUint8(103)};
+}
+
 const D={
   init:[65,40,21,72,133,170,66,51],
   seq:[18,92,178,99,150,7,65,106],
   harvest:[235,65,42,204,125,146,138,230],
 };
 
-let active=null;
-const $=id=>document.getElementById(id);
-function log(m){$("log").textContent=m;}
-
-// ── wallet ─────────────────────────────────────────────────────────────────
-const WALLETS=["backpack","phantom","solflare"];
-async function connectWallet(){
-  for(const name of WALLETS){
-    const w=window[name]||window.solana;
-    if(!w)continue;
-    try{
-      await w.connect();
-      const pk=new solanaWeb3.PublicKey(w.publicKey.toString());
-      active={pk,wallet:w};
-      localStorage.setItem("eg_wallet",name);
-      $("connect-btn").textContent="connected · "+(name.charAt(0).toUpperCase()+name.slice(1));
-      $("connect-btn").classList.add("connected");
-      $("wallet-addr").textContent=pk.toBase58().slice(0,6)+"…"+pk.toBase58().slice(-4);
-      await refreshEg();
-      await loadPlants();
-      return;
-    }catch(e){}
-  }
-  log("no wallet found — install Backpack or Phantom");
+// ── wallet (Wallet Standard — detects X1 Wallet, Backpack, etc.) ──
+const wallets=new Map();
+function registerWallet(w){
+  try{
+    if(!w?.features?.["standard:connect"]) return;
+    const chains=w.chains||[];
+    const ok=chains.length===0||chains.some(c=>{const s=String(c);return s.startsWith("solana")||s.startsWith("x1");});
+    if(ok) wallets.set(w.name,w);
+  }catch(e){}
 }
-async function autoConnect(){
-  const saved=localStorage.getItem("eg_wallet");
-  if(!saved)return;
-  const w=window[saved]||window.solana;
-  if(!w)return;
-  try{await w.connect({onlyIfTrusted:true});const pk=new solanaWeb3.PublicKey(w.publicKey.toString());active={pk,wallet:w};
-    $("connect-btn").textContent="connected · "+saved;$("connect-btn").classList.add("connected");
-    $("wallet-addr").textContent=pk.toBase58().slice(0,6)+"…"+pk.toBase58().slice(-4);
-    await refreshEg();await loadPlants();}catch(e){}
+window.addEventListener("wallet-standard:register-wallet",ev=>ev.detail&&registerWallet(ev.detail));
+try{window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{register:registerWallet}}));}catch(e){}
+
+async function connectStandard(w){
+  const res=await w.features["standard:connect"].connect();
+  const acct=res.accounts[0];
+  const pk=new solanaWeb3.PublicKey(acct.publicKey??acct.address);
+  const sast=w.features["solana:signAndSendTransaction"];
+  const st=w.features["solana:signTransaction"];
+  const allChains=acct.chains?.length?acct.chains:(w.chains||[]);
+  const chain=allChains.find(c=>String(c).startsWith("x1"))??allChains[0]??"solana:mainnet";
+  return {pk,sign:async tx=>{
+    tx.feePayer=pk;tx.recentBlockhash=(await conn.getLatestBlockhash()).blockhash;
+    if(sast){const ser=tx.serialize({requireAllSignatures:false,verifySignatures:false});
+      const[out]=await sast.signAndSendTransaction({transaction:ser,account:acct,chain});
+      return typeof out.signature==="string"?out.signature:base58(out.signature);}
+    const[signed]=await st.signTransaction({transaction:tx.serialize({requireAllSignatures:false,verifySignatures:false}),account:acct});
+    return conn.sendRawTransaction(signed.signedTransaction);
+  }};
+}
+async function connectBackpack(){
+  const bp=window.backpack?.solana??window.backpack??window.xnft?.solana;
+  if(!bp) throw new Error("Backpack not found");
+  const resp=await bp.connect();
+  const pk=new solanaWeb3.PublicKey((resp?.publicKey??bp.publicKey).toString());
+  return {pk,sign:async tx=>{
+    tx.feePayer=pk;tx.recentBlockhash=(await conn.getLatestBlockhash()).blockhash;
+    const res=await bp.signAndSendTransaction(tx);
+    return res?.signature??res;
+  }};
+}
+
+let active=null;
+function onConnected(name){
+  $("wallet-addr").textContent=active.pk.toBase58().slice(0,6)+"…"+active.pk.toBase58().slice(-4);
+  $("connect-btn").textContent="connected · "+name;
+  $("connect-btn").classList.add("connected");
+  try{ localStorage.setItem("eg_wallet", name); }catch(e){}
+  try{ walletDialog.close(); }catch(e){}
+  refreshEg();
+  loadPlants();
+}
+$("connect-btn").onclick=async()=>{
+  try{window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{register:registerWallet}}));}catch(e){}
+  if(window.x1wallet&&!wallets.has("X1 Wallet")) try{registerWallet(window.x1wallet);}catch(e){}
+  await new Promise(r=>setTimeout(r,80));
+  const list=$("walletList");list.innerHTML="";
+  const opts=[];
+  const seen=new Set([...wallets.keys()].map(n=>n.toLowerCase()));
+  for(const[name,w]of wallets) opts.push({label:name,go:async()=>{active=await connectStandard(w);onConnected(name);}});
+  if((window.backpack||window.xnft?.solana)&&!seen.has("backpack"))
+    opts.push({label:"Backpack",go:async()=>{active=await connectBackpack();onConnected("Backpack");}});
+  if(!opts.length){
+    list.innerHTML='<p style="color:var(--ash);font-size:13px;margin-bottom:12px">No wallet detected. Install one and set it to X1 Mainnet.</p>'+
+      '<a href="https://chromewebstore.google.com/detail/x1-wallet/kcfmcpdmlchhbikbogddmgopmjbflnae" target="_blank" class="wopt" style="border-color:var(--leaf)">⚡ Install X1 Wallet →</a>'+
+      '<a href="https://backpack.app/download" target="_blank" class="wopt" style="border-color:var(--root);color:var(--root)">🎒 Install Backpack →</a>';
+  } else {
+    opts.forEach(o=>{const b=document.createElement("button");b.className="wopt";b.textContent=o.label;
+      b.onclick=async()=>{try{await o.go();}catch(e){log("connect failed: "+(e.message||e));}};list.appendChild(b);});
+  }
+  walletDialog.showModal();
+};
+async function tryAutoConnect(){
+  let saved=null;
+  try{ saved=localStorage.getItem("eg_wallet"); }catch(e){}
+  if(!saved) return;
+  for(let attempt=0; attempt<8; attempt++){
+    try{window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{register:registerWallet}}));}catch(e){}
+    if(window.x1wallet&&!wallets.has("X1 Wallet")) try{registerWallet(window.x1wallet);}catch(e){}
+    if(wallets.has(saved)){
+      try{ active=await connectStandard(wallets.get(saved)); onConnected(saved); return; }catch(e){ return; }
+    }
+    if(saved==="Backpack" && (window.backpack||window.xnft?.solana)){
+      try{ active=await connectBackpack(); onConnected("Backpack"); return; }catch(e){ return; }
+    }
+    await new Promise(r=>setTimeout(r,250));
+  }
 }
 async function refreshEg(){
   if(!active)return;
@@ -147,46 +230,46 @@ async function loadPlants(){
   log("loading…");
   $("plants-grid").innerHTML='<div class="empty">loading your plants…</div>';
   try{
-    const all=await conn.getProgramAccounts(PID);
-    // find Plant accounts discriminator: sha256("account:Plant")[:8]
-    const disc=new Uint8Array([108,117,23,253,84,98,56,76]);
-    const plants=[];
-    for(const a of all){
-      const d=a.account.data;
-      if(d.length<140)continue;
-      let match=true;for(let i=0;i<8;i++)if(d[i]!==disc[i]){match=false;break;}
-      if(!match)continue;
-      // decode plant: 8+32(plot)+1(slot)+2(species)+32(genome)+2(optimal)+8+8+2+8+1+8
-      let o=8;
-      const plot=new solanaWeb3.PublicKey(d.slice(o,o+32));o+=32;
-      const slotIndex=d[o];o+=1;
-      o+=2; // species
-      const genome=new Uint8Array(d.slice(o,o+32));o+=32;
-      o+=2+8+8+2+8+1+8; // optimal, planted, last_eval, health, biomass, growth_stage, stress
-      // only show plants this wallet planted (check plot owner) — or show all with sinks
-      // for simplicity: show all plants, let user open sinks for theirs
-      // BUT we only allow harvest/sequester for owner — so show all, gate actions by ownership
-      // check if this wallet owns the plot by looking at the plot account
-      plants.push({pk:a.pubkey,plot,slotIndex,genome,plotOwner:null});
+    // fetch only THIS wallet's plots (filter by discriminator + owner at offset 8)
+    const myPlots=await conn.getProgramAccounts(PID,{filters:[
+      {memcmp:{offset:0, bytes: base58(Uint8Array.from(PLOT_DISC))}},
+      {memcmp:{offset:8, bytes: active.pk.toBase58()}},
+    ]});
+    // collect all plant keys across the user's plots
+    const plantKeys=[];
+    for(const{account}of myPlots){
+      const plot=decPlot(account.data);
+      for(const pk of plot.plants) if(pk) plantKeys.push(pk);
     }
-    if(!plants.length){$("plants-grid").innerHTML='<div class="empty">no plants found on mainnet — plant one in your garden first</div>';log("");return;}
-    // for each plant, check if there's a carbon sink
+    if(!plantKeys.length){
+      $("plants-grid").innerHTML='<div class="empty">no plants found — plant one in <a href="/garden.html" style="color:var(--leaf)">your garden</a> first</div>';
+      log("");return;
+    }
+    // load the plant accounts (for genome + health)
+    const plantInfos=await conn.getMultipleAccountsInfo(plantKeys);
+    // load the carbon sinks for each plant in parallel
+    const sinkKeys=plantKeys.map(pk=>pda([te("carbon"),pk.toBytes()]));
+    const sinkInfos=await conn.getMultipleAccountsInfo(sinkKeys);
+
     const cards=[];
-    for(const pl of plants.slice(0,20)){// cap at 20
-      const SINK=pda([te("carbon"),pl.pk.toBytes()]);
-      const si=await conn.getAccountInfo(SINK);
+    for(let i=0;i<plantKeys.length;i++){
+      const pInfo=plantInfos[i];
+      if(!pInfo)continue;
+      const plant=decPlant(pInfo.data);
+      if(plant.health===0)continue; // skip dead plants
       let sink=null;
+      const si=sinkInfos[i];
       if(si){
         const d=si.data;let o=8;
-        const plantKey=new solanaWeb3.PublicKey(d.slice(o,o+32));o+=32;
+        o+=32; // plant
         const owner=new solanaWeb3.PublicKey(d.slice(o,o+32));o+=32;
         const root=rdU64(d,o);o+=8;
         const leaf=rdU64(d,o);o+=8;
         const last=rdU64(d,o);o+=8;
         const harvested=rdU64(d,o);o+=8;
-        sink={owner:owner.toBase58(),root,leaf,last,harvested,pda:SINK};
+        sink={owner:owner.toBase58(),root,leaf,last,harvested,pda:sinkKeys[i]};
       }
-      cards.push({...pl,sink,SINK});
+      cards.push({pk:plantKeys[i],genome:plant.genome,sink,SINK:sinkKeys[i]});
     }
     renderCards(cards);
     log("");
@@ -280,11 +363,9 @@ function renderCards(cards){
 async function sendTx(keys,data,label){
   log(label+"…");
   const tx=new solanaWeb3.Transaction().add(new solanaWeb3.TransactionInstruction({programId:PID,keys,data:Uint8Array.from(data)}));
-  tx.feePayer=active.pk;tx.recentBlockhash=(await conn.getLatestBlockhash()).blockhash;
-  const signed=await active.wallet.signTransaction(tx);
-  const sig=await conn.sendRawTransaction(signed.serialize());
+  const sig=await active.sign(tx);
   await conn.confirmTransaction(sig,"confirmed");
-  log(label+" ✓  "+sig.slice(0,12)+"…");
+  log(label+" ✓  "+String(sig).slice(0,12)+"…");
   return sig;
 }
 
@@ -336,9 +417,6 @@ async function harvestCarbon(sinkKey,plantKey){
 }
 
 // ── boot ────────────────────────────────────────────────────────────────────
-window.addEventListener("load",async()=>{
-  await new Promise(r=>setTimeout(r,600));
-  await autoConnect();
-});
+window.addEventListener("load",()=>{ setTimeout(tryAutoConnect,300); });
 </script>
 </body></html>
