@@ -14,6 +14,7 @@ A garden whose weather is the blockchain itself. Every storm on this page is rea
 2. **Plant a seed.** Its genome sets the sky it loves; it blooms as a unique red rose.
 3. **Tend it through real weather.** Keep it alive as the chain storms and calms.
 4. **Harvest at full bloom** — or compost to return nutrients to the shared soil.
+5. **Join the Bloom Race.** Stake EG on a bloom fed by a live chain signal. Back the right bloom and split the pool with fellow winners. The first multi-player quest in the garden.
 
 ## How to earn EG
 
@@ -24,6 +25,7 @@ A garden whose weather is the blockchain itself. Every storm on this page is rea
 | 🌩️ **Storm-Chaser** | Plants that survive harsh weather pay a harvest bonus. | up to ×3 harvest |
 | 🧵 **Ariadne's Thread** | Trace the labyrinth to the rose at its heart. Hard, but it pays — and crowns you a permanent trophy. | ~61 EG perfect run |
 | 🌿 **Carbon Farming** | Open a carbon sink for any plant. Roots grow from fee pressure, leaves from throughput. Passive — it grows while you sleep. | ~34 EG/harvest cycle |
+| 🌸 **The Bloom Race** | Back a bloom with EG. Two blooms, two chain signals. Whichever signal moves more this round, its backers split the pool. The chain decides. | variable — winner takes the pool |
 
 ## Tokenomics
 
@@ -35,6 +37,8 @@ A garden whose weather is the blockchain itself. Every storm on this page is rea
 
 EG is minted at the moment of each action. Era decay (×0.75 per 30-day era) keeps early mining meaningful. Genesis bonus (×1.5) active now.
 
+The Bloom Race is a pure EG redistribution mechanic — no new EG minted. Backers stake EG; the winning bloom's backers split 90% of the pool; 10% goes to the treasury. Deflationary by design.
+
 ## Architecture
 
 Built on **X1 Chain** (Solana fork). The garden's weather is sampled by a permissionless crank every ~15 seconds:
@@ -42,7 +46,7 @@ Built on **X1 Chain** (Solana fork). The garden's weather is sampled by a permis
 - **Region 0 — The Dry Field:** fee pressure → drought index (bps)
 - **Region 1 — The Rainline:** transaction throughput → rainfall (bps)
 
-Both feeds flow into an on-chain ring buffer (64 samples). Plant growth, quest resolution, and carbon farming all read from these live feeds. Nothing is simulated or admin-controlled.
+Both feeds flow into an on-chain ring buffer (64 samples). Plant growth, quest resolution, carbon farming, and bloom race resolution all read from these live feeds. Nothing is simulated or admin-controlled.
 
 ### On-chain accounts
 
@@ -64,6 +68,7 @@ Both feeds flow into an on-chain ring buffer (64 samples). Plant growth, quest r
 | `skyread-mainnet.html` | Sky-Reading — forecast storm or calm |
 | `ariadne.html` | Ariadne's Thread — the labyrinth quest |
 | `carbon.html` | Carbon Farming — sequester chain activity as biomass |
+| `bloom.html` | **The Bloom Race** — multi-player EG pool race |
 | `map.html` | The living map — all plots, live weather |
 | `tree.html` | The nutrient tree — conservation visualization |
 
@@ -73,6 +78,7 @@ Both feeds flow into an on-chain ring buffer (64 samples). Plant growth, quest r
 - **The chain's activity is the weather.** Every mechanic reads live X1 data. Nothing is simulated.
 - **Conservation.** The nutrient pool is finite (1 billion units). Composting returns nutrients. The soil is shared.
 - **Fair reward mechanics.** Every quest is tuned so random bots earn below the gardening baseline. Skill earns more.
+- **Multi-player by design.** The Bloom Race turns the garden from a solo experience into a community — players watch the same chain together, back competing blooms, and share the outcome.
 - **Grows with the chain.** Carbon farming accumulates from ambient activity. The Pulse and staking are designed but banked until X1 has the volatility and scale to justify them.
 
 ## Tech stack
@@ -92,6 +98,7 @@ Both feeds flow into an on-chain ring buffer (64 samples). Plant growth, quest r
 | The Pulse (TPS band prediction) | Built + banked | When chain tempo varies across bands |
 | EG Staking (earn XNT yield) | Designed | When enough EG mined, enough holders |
 | Scale farming (fields + seasons) | Sketched | When players hold many plots |
+| Bloom Race — 3rd bloom (mistlily) | Designed | When new-wallet crank signal is added |
 
 ---
 
