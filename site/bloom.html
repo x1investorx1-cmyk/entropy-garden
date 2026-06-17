@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Bloom Race — Entropy Garden</title>
+<style>
+:root{--bg:#0B100C;--surface:#10160F;--border:#243224;--bone:#E8E4DA;--ash:#8A9A84;--leaf:#9FD27E;--root:#C8A06A;--ember:#E8622A;--mist:#9ABDE0;--gold:#E0C878;--hairline:#1E2A1E}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--bone);font-family:'Georgia',serif;min-height:100vh;padding:0 0 80px}
+a{color:var(--leaf);text-decoration:none;border-bottom:1px solid transparent}a:hover{border-bottom-color:var(--leaf)}
+.wrap{max-width:1080px;margin:0 auto;padding:48px 28px 0}
+.eyebrow{font-size:11px;color:var(--ash);letter-spacing:.2em;text-transform:uppercase;margin-bottom:28px}
+.eyebrow a{color:var(--ash);border:0}
+h1{font-size:clamp(28px,5vw,52px);font-weight:400;line-height:1.1;margin-bottom:8px}
+h1 em{color:var(--leaf);font-style:italic}
+.tagline{color:var(--ash);font-size:14px;margin-bottom:28px;max-width:72ch;line-height:1.65}
+/* wallet */
+.wallet-bar{display:flex;align-items:center;gap:12px;margin-bottom:28px;flex-wrap:wrap}
+.btn{display:inline-block;padding:8px 16px;border:1px solid var(--border);background:transparent;color:var(--leaf);font-family:inherit;font-size:13px;cursor:pointer;letter-spacing:.05em}
+.btn:hover{background:var(--border)}.btn.connected{border-color:var(--leaf);color:var(--bone)}
+#eg-bal{font-size:12px;color:var(--ash);margin-left:auto}
+#wallet-addr{font-size:12px;color:var(--ash);font-family:monospace}
+/* round status */
+.round-bar{display:flex;align-items:center;gap:18px;margin-bottom:28px;padding:14px 18px;border:1px solid var(--border);background:var(--surface);font-size:12px;flex-wrap:wrap}
+.round-bar .round-id{color:var(--ash)}
+.phase-badge{padding:3px 10px;border-radius:12px;font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+.phase-commit{background:#1a2a12;color:var(--leaf);border:1px solid var(--leaf)}
+.phase-growing{background:#2a1a08;color:var(--root);border:1px solid var(--root)}
+.phase-resolved{background:#1a1a2a;color:var(--mist);border:1px solid var(--mist)}
+.countdown{font-size:20px;font-variant-numeric:tabular-nums;color:var(--bone);margin-left:auto}
+.pool-size{font-size:13px;color:var(--gold)}
+/* blooms */
+.blooms{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:28px}
+@media(max-width:600px){.blooms{grid-template-columns:1fr}}
+.bloom-card{background:var(--surface);border:2px solid var(--border);padding:24px;text-align:center;position:relative;cursor:pointer;transition:border-color .2s}
+.bloom-card:hover{border-color:var(--ash)}
+.bloom-card.selected{border-color:var(--gold)}
+.bloom-card.winner{border-color:var(--gold);background:#1a160a}
+.bloom-card.loser{opacity:0.5}
+.bloom-icon{font-size:48px;margin-bottom:12px;display:block}
+.bloom-name{font-size:18px;font-weight:400;margin-bottom:4px}
+.bloom-signal{font-size:11px;color:var(--ash);letter-spacing:.1em;text-transform:uppercase;margin-bottom:14px}
+.bloom-odds{font-size:28px;font-weight:400;margin-bottom:8px}
+.bloom-odds.rain{color:var(--leaf)}
+.bloom-odds.ember{color:var(--ember)}
+.bloom-staked{font-size:12px;color:var(--ash);margin-bottom:16px}
+.bloom-bps{font-size:11px;color:var(--ash);font-family:monospace;margin-bottom:4px}
+/* stake input */
+.stake-section{background:var(--surface);border:1px solid var(--border);padding:20px;margin-bottom:20px}
+.stake-section h3{font-size:13px;font-weight:400;color:var(--ash);letter-spacing:.15em;text-transform:uppercase;margin-bottom:14px}
+.stake-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.stake-input{background:var(--bg);border:1px solid var(--border);color:var(--bone);font-family:inherit;font-size:14px;padding:8px 12px;width:140px}
+.stake-input:focus{outline:none;border-color:var(--leaf)}
+.btn-stake{border-color:var(--gold);color:var(--gold)}
+.btn-stake:hover{background:#1a160a}
+.btn-open{border-color:var(--leaf)}
+.selected-label{font-size:13px;color:var(--gold)}
+/* recent rounds */
+.recent{margin-top:32px}
+.recent h3{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--ash);margin-bottom:12px}
+.round-dots{display:flex;gap:6px;flex-wrap:wrap}
+.rdot{width:14px;height:14px;border-radius:50%;border:1px solid var(--border);cursor:pointer;title:""}
+.rdot.rain{background:var(--leaf)}.rdot.ember{background:var(--ember)}.rdot.pending{background:var(--border)}
+/* log */
+#log{margin-top:16px;font-size:11px;color:var(--ash);font-family:monospace;min-height:18px}
+/* dialog */
+dialog{background:var(--surface);border:1px solid var(--border);color:var(--bone);padding:24px;max-width:320px;border-radius:4px}
+.wopt{display:block;width:100%;text-align:left;margin-bottom:10px;padding:12px 16px;font-size:14px;border:1px solid var(--border);background:transparent;color:var(--leaf);cursor:pointer;font-family:inherit}
+.wopt:hover{background:var(--border)}
+</style>
+</head><body>
+<div class="wrap">
+<p class="eyebrow"><a href="/">← observatory</a> · <a href="/garden.html">your garden</a> · <a href="/rose.html">🌹 your plants</a> · <a href="/ariadne.html" style="color:var(--gold)">🧵 ariadne</a> · <a href="/carbon.html">🌱 carbon</a></p>
+<h1>the bloom <em>race</em></h1>
+<p class="tagline">Two blooms, two chain signals — each fed by a different current of X1. Back the bloom you think the chain will favour this round. Stake EG; the winning bloom's backers split the pool. The chain decides.</p>
+
+<div class="wallet-bar">
+  <button class="btn" id="connect-btn">connect wallet</button>
+  <span id="wallet-addr"></span>
+  <span id="eg-bal"></span>
+</div>
+<dialog id="walletDialog">
+  <h3 style="font-weight:400;margin-bottom:14px;color:var(--leaf)">choose a wallet</h3>
+  <div id="walletList"></div>
+  <button class="btn" onclick="walletDialog.close()" style="margin-top:6px">cancel</button>
+</dialog>
+
+<div class="round-bar" id="round-bar">
+  <span class="round-id">no active round</span>
+  <button class="btn btn-open" onclick="openRound()">open a round</button>
+</div>
+
+<div class="blooms">
+  <div class="bloom-card" id="card0" onclick="selectBloom(0)">
+    <span class="bloom-icon">🌧️</span>
+    <div class="bloom-name">rainbloom</div>
+    <div class="bloom-signal">feeds on transfer flow (TPS)</div>
+    <div class="bloom-odds rain" id="odds0">×—</div>
+    <div class="bloom-staked" id="staked0">0 EG staked</div>
+    <div class="bloom-bps" id="bps0">—</div>
+  </div>
+  <div class="bloom-card" id="card1" onclick="selectBloom(1)">
+    <span class="bloom-icon">🔥</span>
+    <div class="bloom-name">emberpetal</div>
+    <div class="bloom-signal">feeds on fee pressure</div>
+    <div class="bloom-odds ember" id="odds1">×—</div>
+    <div class="bloom-staked" id="staked1">0 EG staked</div>
+    <div class="bloom-bps" id="bps1">—</div>
+  </div>
+</div>
+
+<div class="stake-section" id="stake-section" style="display:none">
+  <h3>place your stake</h3>
+  <div class="stake-row">
+    <span class="selected-label" id="selected-label">select a bloom above</span>
+    <input class="stake-input" id="stake-amt" type="number" min="10" max="1000" value="10" placeholder="EG amount">
+    <button class="btn btn-stake" onclick="stakeBloom()">stake EG</button>
+    <button class="btn" onclick="resolveRound()" id="resolve-btn" style="display:none">resolve round</button>
+    <button class="btn" onclick="claimWinnings()" id="claim-btn" style="display:none;border-color:var(--gold);color:var(--gold)">claim winnings</button>
+    <button class="btn" onclick="closeLosing()" id="close-btn" style="display:none">close stake</button>
+  </div>
+</div>
+
+<div class="recent" id="recent-section" style="display:none">
+  <h3>recent rounds</h3>
+  <div class="round-dots" id="round-dots"></div>
+</div>
+<div id="log"></div>
+</div>
+
+<script src="https://unpkg.com/@solana/web3.js@1.95.8/lib/index.iife.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+function log(m){$('log').textContent=m;}
+const RPC="https://rpc.mainnet.x1.xyz";
+const PID=new solanaWeb3.PublicKey("8gTX3w2mAkKhGip9Mmvhb3gkcETugkfLEvmT4BNTh1By");
+const TOKEN_PROGRAM=new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+const ATA_PROGRAM=new solanaWeb3.PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
+const TREASURY_EG=new solanaWeb3.PublicKey("9yZyVZoxXG7TW572MMYibCWpWdx3Mu9h7bULxtTJZHDz");
+const conn=new solanaWeb3.Connection(RPC,"confirmed");
+const te=s=>new TextEncoder().encode(s);
+const pda=s=>solanaWeb3.PublicKey.findProgramAddressSync(s,PID)[0];
+const EG_CONFIG=pda([te("eg_config")]),EG_MINT=pda([te("eg_mint")]);
+const feeRid=new Uint8Array([0,0]),tpsRid=new Uint8Array([1,0]);
+const FEED0=pda([te("weather"),tpsRid]);  // bloom0=TPS
+const FEED1=pda([te("weather"),feeRid]);  // bloom1=fees
+const ataKey=o=>solanaWeb3.PublicKey.findProgramAddressSync([o.toBytes(),TOKEN_PROGRAM.toBytes(),EG_MINT.toBytes()],ATA_PROGRAM)[0];
+function base58(bytes){const A="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";let x=0n;for(const b of bytes)x=(x<<8n)+BigInt(b);let s="";while(x>0n){s=A[Number(x%58n)]+s;x/=58n;}return s||"1";}
+function enc64(n){const b=new Uint8Array(8);new DataView(b.buffer).setBigUint64(0,BigInt(n),true);return b;}
+function enc8(n){return new Uint8Array([n]);}
+function rdU64(d,o){return new DataView(d.buffer,d.byteOffset).getBigUint64(o,true);}
+const roundPda=id=>pda([te("bloom_round"),enc64(id)]);
+const vaultAuth=id=>pda([te("bloom_vault"),enc64(id)]);
+const stakePda=(id,pk)=>pda([te("bloom_stake"),enc64(id),pk.toBytes()]);
+const D={open:new Uint8Array([66,235,123,240,8,35,185,159]),stake:new Uint8Array([106,104,54,20,55,8,192,151]),resolve:new Uint8Array([165,114,237,158,1,36,70,254]),claim:new Uint8Array([161,215,24,59,14,236,242,221]),closeLosing:new Uint8Array([229,174,138,138,43,28,152,68])};
+
+// ── wallet ─────────────────────────────────────────────────────────────────
+const wallets=new Map();
+function registerWallet(w){try{if(!w?.features?.["standard:connect"])return;const chains=w.chains||[];const ok=!chains.length||chains.some(c=>String(c).startsWith("solana")||String(c).startsWith("x1"));if(ok)wallets.set(w.name,w);}catch(e){}}
+window.addEventListener("wallet-standard:register-wallet",ev=>ev.detail&&registerWallet(ev.detail));
+try{window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{register:registerWallet}}));}catch(e){}
+async function connectStandard(w){const res=await w.features["standard:connect"].connect();const acct=res.accounts[0];const pk=new solanaWeb3.PublicKey(acct.publicKey??acct.address);const sast=w.features["solana:signAndSendTransaction"];const st=w.features["solana:signTransaction"];const chain=(acct.chains||w.chains||[]).find(c=>String(c).startsWith("x1"))??"solana:mainnet";return{pk,sign:async tx=>{tx.feePayer=pk;tx.recentBlockhash=(await conn.getLatestBlockhash()).blockhash;if(sast){const[out]=await sast.signAndSendTransaction({transaction:tx.serialize({requireAllSignatures:false,verifySignatures:false}),account:acct,chain});return typeof out.signature==="string"?out.signature:base58(out.signature);}const[signed]=await st.signTransaction({transaction:tx.serialize({requireAllSignatures:false,verifySignatures:false}),account:acct});return conn.sendRawTransaction(signed.signedTransaction);}};}
+async function connectBackpack(){const bp=window.backpack?.solana??window.backpack??window.xnft?.solana;if(!bp)throw new Error("Backpack not found");const resp=await bp.connect();const pk=new solanaWeb3.PublicKey((resp?.publicKey??bp.publicKey).toString());return{pk,sign:async tx=>{tx.feePayer=pk;tx.recentBlockhash=(await conn.getLatestBlockhash()).blockhash;const res=await bp.signAndSendTransaction(tx);return res?.signature??res;}};}
+let active=null;
+function onConnected(name){$('wallet-addr').textContent=active.pk.toBase58().slice(0,6)+"…"+active.pk.toBase58().slice(-4);$('connect-btn').textContent="connected · "+name;$('connect-btn').classList.add("connected");try{localStorage.setItem("eg_wallet",name);}catch(e){}try{walletDialog.close();}catch(e){}refreshEg();loadCurrentRound();}
+$('connect-btn').onclick=async()=>{try{window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{register:registerWallet}}));}catch(e){}if(window.x1wallet&&!wallets.has("X1 Wallet"))try{registerWallet(window.x1wallet);}catch(e){}await new Promise(r=>setTimeout(r,80));const list=$("walletList");list.innerHTML="";const opts=[];const seen=new Set([...wallets.keys()].map(n=>n.toLowerCase()));for(const[name,w]of wallets)opts.push({label:name,go:async()=>{active=await connectStandard(w);onConnected(name);}});if((window.backpack||window.xnft?.solana)&&!seen.has("backpack"))opts.push({label:"Backpack",go:async()=>{active=await connectBackpack();onConnected("Backpack");}});if(!opts.length){list.innerHTML='<p style="color:var(--ash);font-size:13px;margin-bottom:12px">No wallet detected.</p><a href="https://chromewebstore.google.com/detail/x1-wallet/kcfmcpdmlchhbikbogddmgopmjbflnae" target="_blank" class="wopt">⚡ Install X1 Wallet →</a>';}else{opts.forEach(o=>{const b=document.createElement("button");b.className="wopt";b.textContent=o.label;b.onclick=async()=>{try{await o.go();}catch(e){log("connect failed: "+e.message);}};list.appendChild(b);});}walletDialog.showModal();};
+async function tryAutoConnect(){let saved=null;try{saved=localStorage.getItem("eg_wallet");}catch(e){}if(!saved)return;for(let i=0;i<8;i++){try{window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{register:registerWallet}}));}catch(e){}if(wallets.has(saved)){try{active=await connectStandard(wallets.get(saved));onConnected(saved);return;}catch(e){return;}}if(saved==="Backpack"&&(window.backpack||window.xnft?.solana)){try{active=await connectBackpack();onConnected("Backpack");return;}catch(e){return;}}await new Promise(r=>setTimeout(r,250));}}
+async function refreshEg(){if(!active)return;try{const b=await conn.getTokenAccountBalance(ataKey(active.pk));$('eg-bal').textContent="EG: "+b.value.uiAmount?.toLocaleString();}catch(_){}}
+
+// ── round state ─────────────────────────────────────────────────────────────
+let currentRound=null,selectedBloom=null,myStake=null,ticker=null;
+const PHASE=['Commit','Growing','Resolved'];
+const BLOOM_NAMES=["🌧️ rainbloom","🔥 emberpetal"];
+
+function decodeRound(d){
+  let o=8;const id=rdU64(d,o);o+=8;const phase=d[o];o+=1;
+  const commitEnd=rdU64(d,o);o+=8;const growEnd=rdU64(d,o);o+=8;
+  const b0=new DataView(d.buffer,d.byteOffset).getUint16(o,true);o+=2;
+  const b1=new DataView(d.buffer,d.byteOffset).getUint16(o,true);o+=2;
+  const s0=rdU64(d,o);o+=8;const s1=rdU64(d,o);o+=8;
+  const pool=rdU64(d,o);o+=8;const winner=d[o];o+=1;const resolved=d[o]===1;
+  return{id,phase,commitEnd,growEnd,b0,b1,s0,s1,pool,winner,resolved};
+}
+function decodeStake(d){let o=8;o+=32;o+=8;const bloom=d[o];o+=1;const amt=rdU64(d,o);o+=8;const claimed=d[o]===1;return{bloom,amt,claimed};}
+
+async function loadCurrentRound(){
+  // scan recent rounds (last 20 IDs near current slot)
+  const slot=await conn.getSlot();
+  for(let delta=0;delta<200;delta+=10){
+    const id=BigInt(slot)-BigInt(delta);
+    try{
+      const info=await conn.getAccountInfo(roundPda(id));
+      if(info){const r=decodeRound(info.data);currentRound={...r,pda:roundPda(id),va:vaultAuth(id),vault:ataKey(vaultAuth(id))};renderRound();return;}
+    }catch(_){}
+  }
+  renderNoRound();
+}
+function renderNoRound(){$('round-bar').innerHTML='<span class="round-id" style="color:var(--ash)">no active round</span><button class="btn btn-open" onclick="openRound()">open a round</button>';$('stake-section').style.display='none';}
+
+function renderRound(){
+  if(!currentRound){renderNoRound();return;}
+  const r=currentRound;
+  const phaseName=PHASE[r.phase]??'Unknown';
+  const phaseClass=['phase-commit','phase-growing','phase-resolved'][r.phase]??'';
+  $('round-bar').innerHTML=`<span class="round-id">round #${r.id}</span><span class="phase-badge ${phaseClass}">${phaseName}</span><span id="countdown" class="countdown">—</span><span class="pool-size">pool: ${Number(r.pool)/1e9} EG</span>`;
+  // bloom cards
+  const total=Number(r.s0)+Number(r.s1)||1;
+  const odds0=total/Math.max(1,Number(r.s0));
+  const odds1=total/Math.max(1,Number(r.s1));
+  $('odds0').textContent="×"+odds0.toFixed(2);
+  $('odds1').textContent="×"+odds1.toFixed(2);
+  $('staked0').textContent=`${Number(r.s0)/1e9} EG staked`;
+  $('staked1').textContent=`${Number(r.s1)/1e9} EG staked`;
+  $('bps0').textContent=`baseline ${r.b0} bps`;
+  $('bps1').textContent=`baseline ${r.b1} bps`;
+  // winner styling
+  if(r.resolved){
+    $('card'+r.winner).classList.add("winner");
+    $('card'+(1-r.winner)).classList.add("loser");
+  }
+  // stake section
+  if(r.phase===0){$('stake-section').style.display='block';}
+  // action buttons
+  $('resolve-btn').style.display=r.phase===1?'inline-block':'none';
+  if(myStake&&r.resolved){
+    if(myStake.bloom===r.winner&&!myStake.claimed){$('claim-btn').style.display='inline-block';}
+    else if(myStake.bloom!==r.winner){$('close-btn').style.display='inline-block';}
+  }
+  // countdown ticker
+  clearInterval(ticker);
+  const target=r.phase===0?Number(r.commitEnd):r.phase===1?Number(r.growEnd):null;
+  if(target){
+    async function tick(){const s=await conn.getSlot();const rem=target-s;if(rem<=0){clearInterval(ticker);loadCurrentRound();return;}const secs=Math.round(rem*0.4);$('countdown')?($('countdown').textContent=secs+"s remaining"):''}
+    tick();ticker=setInterval(tick,3000);
+  }
+  // load my stake
+  if(active)loadMyStake();
+}
+async function loadMyStake(){
+  if(!active||!currentRound)return;
+  try{const info=await conn.getAccountInfo(stakePda(currentRound.id,active.pk));if(info){myStake=decodeStake(info.data);$('selected-label').textContent=`backed: ${BLOOM_NAMES[myStake.bloom]} (${Number(myStake.amt)/1e9} EG)`;selectedBloom=myStake.bloom;}}catch(_){}
+}
+
+// ── bloom selection ─────────────────────────────────────────────────────────
+function selectBloom(id){
+  if(myStake){log("you already backed a bloom this round");return;}
+  if(!currentRound||currentRound.phase!==0){log("not in commit phase");return;}
+  selectedBloom=id;
+  $('card0').classList.toggle("selected",id===0);
+  $('card1').classList.toggle("selected",id===1);
+  $('selected-label').textContent=`backing: ${BLOOM_NAMES[id]}`;
+}
+
+// ── instructions ─────────────────────────────────────────────────────────────
+async function sendTx(keys,data,label){
+  if(!active){log("connect wallet first");return;}
+  log(label+"…");
+  const tx=new solanaWeb3.Transaction().add(new solanaWeb3.TransactionInstruction({programId:PID,keys,data}));
+  const sig=await active.sign(tx);
+  await conn.confirmTransaction(sig,"confirmed");
+  log(label+" ✓");
+  return sig;
+}
+const SP=solanaWeb3.SystemProgram.programId;
+
+async function openRound(){
+  const slot=await conn.getSlot();const id=BigInt(slot);
+  const ROUND=roundPda(id),VA=vaultAuth(id),VAULT=ataKey(VA);
+  const data=new Uint8Array([...D.open,...enc64(id)]);
+  await sendTx([{pubkey:active.pk,isSigner:true,isWritable:true},{pubkey:ROUND,isSigner:false,isWritable:true},{pubkey:VA,isSigner:false,isWritable:false},{pubkey:VAULT,isSigner:false,isWritable:true},{pubkey:FEED0,isSigner:false,isWritable:false},{pubkey:FEED1,isSigner:false,isWritable:false},{pubkey:EG_MINT,isSigner:false,isWritable:false},{pubkey:EG_CONFIG,isSigner:false,isWritable:false},{pubkey:TOKEN_PROGRAM,isSigner:false,isWritable:false},{pubkey:ATA_PROGRAM,isSigner:false,isWritable:false},{pubkey:SP,isSigner:false,isWritable:false}],data,"open_round");
+  await loadCurrentRound();
+}
+async function stakeBloom(){
+  if(selectedBloom===null){log("select a bloom first");return;}
+  if(!currentRound){log("no active round");return;}
+  const amt=Math.round(parseFloat($('stake-amt').value)*1e9);
+  if(amt<10e9||amt>1000e9){log("stake must be 10–1000 EG");return;}
+  const id=currentRound.id;
+  const ROUND=roundPda(id),VA=vaultAuth(id),VAULT=ataKey(VA),STAKE=stakePda(id,active.pk);
+  const data=new Uint8Array([...D.stake,...enc64(id),...enc8(selectedBloom),...enc64(amt)]);
+  await sendTx([{pubkey:active.pk,isSigner:true,isWritable:true},{pubkey:ROUND,isSigner:false,isWritable:true},{pubkey:STAKE,isSigner:false,isWritable:true},{pubkey:VA,isSigner:false,isWritable:false},{pubkey:VAULT,isSigner:false,isWritable:true},{pubkey:ataKey(active.pk),isSigner:false,isWritable:true},{pubkey:EG_MINT,isSigner:false,isWritable:false},{pubkey:EG_CONFIG,isSigner:false,isWritable:false},{pubkey:TOKEN_PROGRAM,isSigner:false,isWritable:false},{pubkey:ATA_PROGRAM,isSigner:false,isWritable:false},{pubkey:SP,isSigner:false,isWritable:false}],data,"stake_bloom");
+  await loadCurrentRound();await refreshEg();
+}
+async function resolveRound(){
+  if(!currentRound){log("no round");return;}
+  const id=currentRound.id;
+  const ROUND=roundPda(id),VA=vaultAuth(id),VAULT=ataKey(VA);
+  const data=new Uint8Array([...D.resolve,...enc64(id)]);
+  await sendTx([{pubkey:active.pk,isSigner:true,isWritable:true},{pubkey:ROUND,isSigner:false,isWritable:true},{pubkey:VA,isSigner:false,isWritable:false},{pubkey:VAULT,isSigner:false,isWritable:true},{pubkey:TREASURY_EG,isSigner:false,isWritable:true},{pubkey:FEED0,isSigner:false,isWritable:false},{pubkey:FEED1,isSigner:false,isWritable:false},{pubkey:EG_MINT,isSigner:false,isWritable:false},{pubkey:EG_CONFIG,isSigner:false,isWritable:false},{pubkey:TOKEN_PROGRAM,isSigner:false,isWritable:false},{pubkey:ATA_PROGRAM,isSigner:false,isWritable:false},{pubkey:SP,isSigner:false,isWritable:false}],data,"resolve_round");
+  await loadCurrentRound();await refreshEg();
+}
+async function claimWinnings(){
+  if(!currentRound){log("no round");return;}
+  const id=currentRound.id;
+  const ROUND=roundPda(id),VA=vaultAuth(id),VAULT=ataKey(VA),STAKE=stakePda(id,active.pk);
+  const data=new Uint8Array([...D.claim,...enc64(id)]);
+  await sendTx([{pubkey:active.pk,isSigner:true,isWritable:true},{pubkey:ROUND,isSigner:false,isWritable:false},{pubkey:STAKE,isSigner:false,isWritable:true},{pubkey:VA,isSigner:false,isWritable:false},{pubkey:VAULT,isSigner:false,isWritable:true},{pubkey:ataKey(active.pk),isSigner:false,isWritable:true},{pubkey:EG_MINT,isSigner:false,isWritable:false},{pubkey:EG_CONFIG,isSigner:false,isWritable:false},{pubkey:TOKEN_PROGRAM,isSigner:false,isWritable:false},{pubkey:ATA_PROGRAM,isSigner:false,isWritable:false},{pubkey:SP,isSigner:false,isWritable:false}],data,"claim_winnings");
+  await loadCurrentRound();await refreshEg();
+}
+async function closeLosing(){
+  if(!currentRound){log("no round");return;}
+  const id=currentRound.id;
+  const ROUND=roundPda(id),STAKE=stakePda(id,active.pk);
+  const data=new Uint8Array([...D.closeLosing,...enc64(id)]);
+  await sendTx([{pubkey:active.pk,isSigner:true,isWritable:true},{pubkey:ROUND,isSigner:false,isWritable:false},{pubkey:STAKE,isSigner:false,isWritable:true}],data,"close_losing_stake");
+  await loadCurrentRound();
+}
+
+// boot
+window.addEventListener("load",()=>{setTimeout(tryAutoConnect,300);setTimeout(loadCurrentRound,500);});
+</script>
+</body></html>
