@@ -226,10 +226,9 @@ function renderRound(){
   $('round-bar').innerHTML=`<span class="round-id">round #${r.id}</span><span class="phase-badge ${phaseClass}">${phaseName}</span><span id="countdown" class="countdown">—</span><span class="pool-size">pool: ${Number(r.pool)/1e9} EG</span>`;
   // bloom cards
   const total=Number(r.s0)+Number(r.s1)||1;
-  const odds0=total/Math.max(1,Number(r.s0));
-  const odds1=total/Math.max(1,Number(r.s1));
-  $('odds0').textContent="×"+odds0.toFixed(2);
-  $('odds1').textContent="×"+odds1.toFixed(2);
+  const s0=Number(r.s0),s1=Number(r.s1);
+  $('odds0').textContent=s0>0?"×"+(total/s0).toFixed(2):"×—";
+  $('odds1').textContent=s1>0?"×"+(total/s1).toFixed(2):"×—";
   $('staked0').textContent=`${Number(r.s0)/1e9} EG staked`;
   $('staked1').textContent=`${Number(r.s1)/1e9} EG staked`;
   $('bps0').textContent=`baseline ${r.b0} bps`;
