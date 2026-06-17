@@ -184,13 +184,34 @@ function decodeRound(d){
 function decodeStake(d){let o=8;o+=32;o+=8;const bloom=d[o];o+=1;const amt=rdU64(d,o);o+=8;const claimed=d[o]===1;return{bloom,amt,claimed};}
 
 async function loadCurrentRound(){
-  // scan recent rounds (last 20 IDs near current slot)
   const slot=await conn.getSlot();
-  for(let delta=0;delta<200;delta+=10){
+  // 1. try the cached round ID first (fast path — works across page loads + for user #2)
+  try{
+    const cached=localStorage.getItem("bloom_round_id");
+    if(cached){
+      const id=BigInt(cached);
+      const info=await conn.getAccountInfo(roundPda(id));
+      if(info){
+        const r=decodeRound(info.data);
+        // only use cached if still active (not resolved, or resolved recently)
+        if(!r.resolved||Number(r.growEnd)>slot-600){
+          currentRound={...r,pda:roundPda(id),va:vaultAuth(id),vault:ataKey(vaultAuth(id))};
+          renderRound();return;
+        }
+      }
+    }
+  }catch(_){}
+  // 2. scan backwards covering a full round lifetime (~1200 slots = ~8 min)
+  for(let delta=0;delta<1200;delta+=20){
     const id=BigInt(slot)-BigInt(delta);
     try{
       const info=await conn.getAccountInfo(roundPda(id));
-      if(info){const r=decodeRound(info.data);currentRound={...r,pda:roundPda(id),va:vaultAuth(id),vault:ataKey(vaultAuth(id))};renderRound();return;}
+      if(info){
+        const r=decodeRound(info.data);
+        currentRound={...r,pda:roundPda(id),va:vaultAuth(id),vault:ataKey(vaultAuth(id))};
+        try{localStorage.setItem("bloom_round_id",id.toString());}catch(_){}
+        renderRound();return;
+      }
     }catch(_){}
   }
   renderNoRound();
@@ -270,6 +291,7 @@ async function openRound(){
   const ROUND=roundPda(id),VA=vaultAuth(id),VAULT=ataKey(VA);
   const data=new Uint8Array([...D.open,...enc64(id)]);
   await sendTx([{pubkey:active.pk,isSigner:true,isWritable:true},{pubkey:ROUND,isSigner:false,isWritable:true},{pubkey:VA,isSigner:false,isWritable:false},{pubkey:VAULT,isSigner:false,isWritable:true},{pubkey:FEED0,isSigner:false,isWritable:false},{pubkey:FEED1,isSigner:false,isWritable:false},{pubkey:EG_MINT,isSigner:false,isWritable:false},{pubkey:EG_CONFIG,isSigner:false,isWritable:false},{pubkey:TOKEN_PROGRAM,isSigner:false,isWritable:false},{pubkey:ATA_PROGRAM,isSigner:false,isWritable:false},{pubkey:SP,isSigner:false,isWritable:false}],data,"open_round");
+  try{localStorage.setItem("bloom_round_id",id.toString());}catch(_){}
   await loadCurrentRound();
 }
 async function stakeBloom(){
