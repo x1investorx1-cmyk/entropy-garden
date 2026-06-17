@@ -228,15 +228,22 @@ pub fn resolve_round(ctx: Context<ResolveRound>, round_id: u64) -> Result<()> {
 
     // read current bps values
     let current = [feed_bps(&ctx.accounts.feed0), feed_bps(&ctx.accounts.feed1)];
-    // winner = bloom whose signal grew the most (absolute delta)
-    let mut winner: u8 = 0;
+    // winner = bloom whose signal grew the most, among blooms that HAVE backers
+    // (a bloom with 0 stakers cannot win — the pool would be unclaimable)
+    let mut winner: u8 = u8::MAX;
     let mut best_delta: u32 = 0;
     for i in 0..BLOOM_COUNT {
+        if r.total_staked[i] == 0 { continue; } // skip unbacked blooms
         let base = r.baseline_bps[i] as u32;
         let cur  = current[i] as u32;
         let delta = cur.saturating_sub(base);
-        if delta > best_delta { best_delta = delta; winner = i as u8; }
+        if winner == u8::MAX || delta > best_delta {
+            best_delta = delta;
+            winner = i as u8;
+        }
     }
+    // require at least one backed bloom
+    require!(winner != u8::MAX, GardenError::PoolExhausted);
     r.winner   = winner;
     r.resolved = true;
     r.phase    = PHASE_RESOLVED;
