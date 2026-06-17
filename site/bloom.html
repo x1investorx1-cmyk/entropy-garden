@@ -107,6 +107,10 @@ dialog{background:var(--surface);border:1px solid var(--border);color:var(--bone
   <span class="round-id">no active round</span>
   <button class="btn btn-open" onclick="openRound()">open a round</button>
 </div>
+<div style="margin-bottom:20px;font-size:12px;color:var(--ash)">
+  have an old round to claim? <input id="load-id" placeholder="round ID" style="background:var(--bg);border:1px solid var(--border);color:var(--bone);font-family:monospace;font-size:12px;padding:5px 8px;width:120px">
+  <button class="btn" onclick="loadById()" style="padding:5px 12px">load round</button>
+</div>
 
 <div class="blooms">
   <div class="bloom-card" id="card0" onclick="selectBloom(0)">
@@ -201,6 +205,20 @@ function decodeRound(d){
 }
 function decodeStake(d){let o=8;o+=32;o+=8;const bloom=d[o];o+=1;const amt=rdU64(d,o);o+=8;const claimed=d[o]===1;return{bloom,amt,claimed};}
 
+async function loadById(){
+  const v=$('load-id').value.trim();
+  if(!v){log("enter a round ID");return;}
+  try{
+    const id=BigInt(v);
+    const info=await conn.getAccountInfo(roundPda(id));
+    if(!info){log("round "+v+" not found");return;}
+    const r=decodeRound(info.data);
+    currentRound={...r,pda:roundPda(id),va:vaultAuth(id),vault:ataKey(vaultAuth(id))};
+    try{localStorage.setItem("bloom_round_id",id.toString());}catch(_){}
+    renderRound();
+    log("loaded round "+v);
+  }catch(e){log("invalid round ID");}
+}
 async function loadCurrentRound(){
   const slot=await conn.getSlot();
   // 1. try the cached round ID first (fast path — works across page loads + for user #2)
