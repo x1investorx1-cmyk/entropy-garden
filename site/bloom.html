@@ -244,7 +244,8 @@ async function loadMyStake(){
 // ── bloom selection ─────────────────────────────────────────────────────────
 function selectBloom(id){
   if(myStake){log("you already backed a bloom this round");return;}
-  if(!currentRound||currentRound.phase!==0){log("not in commit phase");return;}
+  if(!currentRound){log("open a round first, then select a bloom");return;}
+  if(currentRound.phase!==0){log("commit phase is closed — wait for the next round");return;}
   selectedBloom=id;
   $('card0').classList.toggle("selected",id===0);
   $('card1').classList.toggle("selected",id===1);
@@ -264,6 +265,7 @@ async function sendTx(keys,data,label){
 const SP=solanaWeb3.SystemProgram.programId;
 
 async function openRound(){
+  if(!active){log("connect your wallet first");return;}
   const slot=await conn.getSlot();const id=BigInt(slot);
   const ROUND=roundPda(id),VA=vaultAuth(id),VAULT=ataKey(VA);
   const data=new Uint8Array([...D.open,...enc64(id)]);
