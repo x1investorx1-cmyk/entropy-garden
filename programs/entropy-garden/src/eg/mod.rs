@@ -94,3 +94,4 @@ pub mod thread;
 pub mod metadata;
 pub mod pulse;
 pub mod carbon;
+pub mod bloom;

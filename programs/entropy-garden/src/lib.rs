@@ -12,6 +12,7 @@ use eg::skyread::*;
 use eg::thread::*;
 use eg::pulse::*;
 use eg::carbon::*;
+use eg::bloom::*;
 use eg::metadata::*;
 use state::WeatherChannel;
 
@@ -92,6 +93,22 @@ pub mod entropy_garden {
     }
     pub fn harvest_carbon(ctx: Context<HarvestCarbon>) -> Result<()> {
         eg::carbon::harvest_carbon(ctx)
+    }
+
+    pub fn open_round(ctx: Context<OpenRound>, round_id: u64) -> Result<()> {
+        eg::bloom::open_round(ctx, round_id)
+    }
+    pub fn stake_bloom(ctx: Context<StakeBloom>, round_id: u64, bloom_id: u8, amount: u64) -> Result<()> {
+        eg::bloom::stake_bloom(ctx, round_id, bloom_id, amount)
+    }
+    pub fn resolve_round(ctx: Context<ResolveRound>, round_id: u64) -> Result<()> {
+        eg::bloom::resolve_round(ctx, round_id)
+    }
+    pub fn claim_winnings(ctx: Context<ClaimWinnings>, round_id: u64) -> Result<()> {
+        eg::bloom::claim_winnings(ctx, round_id)
+    }
+    pub fn close_losing_stake(ctx: Context<CloseLosingStake>, round_id: u64) -> Result<()> {
+        eg::bloom::close_losing_stake(ctx, round_id)
     }
 
     pub fn enter_maze(ctx: Context<EnterMaze>) -> Result<()> {
