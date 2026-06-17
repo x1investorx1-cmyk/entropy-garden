@@ -37,7 +37,8 @@ h1 em{color:var(--leaf);font-style:italic}
 .carbon-card{background:var(--surface);border:1px solid var(--border);padding:20px;position:relative}
 .carbon-card.has-sink{border-color:#2a3a2a}
 .carbon-card h4{font-size:13px;font-weight:400;color:var(--ash);margin-bottom:12px;font-family:monospace}
-.visual-wrap{display:flex;gap:16px;align-items:flex-start;margin-bottom:14px}
+.visual-wrap{display:flex;gap:18px;align-items:center;margin-bottom:14px}
+.visual-wrap svg{flex-shrink:0;background:linear-gradient(180deg,transparent 56%,#0a0f09 56%);border-radius:6px}
 .stats{flex:1;font-size:12px}
 .stat-row{display:flex;justify-content:space-between;margin-bottom:6px;color:var(--ash)}
 .stat-row b{color:var(--bone)}
@@ -289,8 +290,16 @@ function carbonSvg(genome,rootMass,leafMass,size){
   const leafCol=`hsl(${100+(g[7]%40)},${50+(g[8]%25)}%,${30+(g[9]%14)}%)`;
   const rootCol=`hsl(${28+(g[5]%14)},${30+(g[6]%20)}%,${28+(g[4]%12)}%)`;
   let p=[];
-  p.push(`<rect x="0" y="${ground}" width="${W}" height="${H-ground}" fill="#0d120b" opacity="0.7"/>`);
-  p.push(`<line x1="0" y1="${ground}" x2="${W}" y2="${ground}" stroke="#243224" stroke-width="1"/>`);
+  p.push(`<line x1="0" y1="${ground}" x2="${W}" y2="${ground}" stroke="#2a3a2a" stroke-width="1"/>`);
+  const isEmpty = Number(rootMass)===0 && Number(leafMass)===0;
+  if(isEmpty){
+    // freshly opened sink — a tiny seedling waiting to be sequestered
+    p.push(`<line x1="${cx}" y1="${ground}" x2="${cx}" y2="${ground-14*sc}" stroke="${stemCol}" stroke-width="${3*sc}" stroke-linecap="round"/>`);
+    p.push(`<ellipse cx="${cx-5*sc}" cy="${ground-13*sc}" rx="${6*sc}" ry="${3.5*sc}" fill="${leafCol}" transform="rotate(-30 ${cx} ${ground-13*sc})"/>`);
+    p.push(`<ellipse cx="${cx+5*sc}" cy="${ground-13*sc}" rx="${6*sc}" ry="${3.5*sc}" fill="${leafCol}" transform="rotate(30 ${cx} ${ground-13*sc})"/>`);
+    p.push(`<text x="${cx}" y="${ground+24*sc}" font-size="${9*sc}" fill="#556" text-anchor="middle" font-family="monospace">not yet sequestered</text>`);
+    return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${p.join("")}</svg>`;
+  }
   // roots
   function root(x,y,ang,len,dep){
     if(dep<=0||len<3)return;
