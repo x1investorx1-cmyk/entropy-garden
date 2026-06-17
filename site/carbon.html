@@ -50,6 +50,7 @@ h1 em{color:var(--leaf);font-style:italic}
 #log{margin-top:20px;font-size:11px;color:var(--ash);font-family:monospace;min-height:18px}
 </style>
 </head><body>
+<script src="https://unpkg.com/@solana/web3.js@1.95.8/lib/index.iife.min.js"></script>
 <div class="wrap">
 <p class="eyebrow"><a href="/">← observatory</a> · <a href="/garden.html">your garden</a> · <a href="/rose.html">🌹 your plants</a> · <a href="/ariadne.html" style="color:#E0C878">🧵 ariadne</a></p>
 <h1>carbon <em>farming</em></h1>
@@ -84,9 +85,11 @@ const TOKEN_PROGRAM=new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9S
 const ATA_PROGRAM=new solanaWeb3.PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
 const conn=new solanaWeb3.Connection(RPC,"confirmed");
 const te=s=>new TextEncoder().encode(s);
+const u64=(d,o)=>new DataView(d.buffer??d.buffer).getBigUint64(o,true);
+function rdU64(d,o){return new DataView(d.buffer,d.byteOffset,d.byteLength).getBigUint64(o,true);}
 const pda=s=>solanaWeb3.PublicKey.findProgramAddressSync(s,PID)[0];
 const EG_CONFIG=pda([te("eg_config")]),EG_MINT=pda([te("eg_mint")]),EG_AUTH=pda([te("eg_mint_auth")]);
-const feeRid=Buffer.from([0,0]),tpsRid=Buffer.from([1,0]);
+const feeRid=new Uint8Array([0,0]),tpsRid=new Uint8Array([1,0]);
 const FEE_FEED=pda([te("weather"),feeRid]),TPS_FEED=pda([te("weather"),tpsRid]);
 const ataKey=o=>solanaWeb3.PublicKey.findProgramAddressSync([o.toBytes(),TOKEN_PROGRAM.toBytes(),EG_MINT.toBytes()],ATA_PROGRAM)[0];
 
@@ -96,7 +99,6 @@ const D={
   harvest:[235,65,42,204,125,146,138,230],
 };
 
-const PLANT_DISC=(()=>{const c=require?null:null;return null;})();
 let active=null;
 const $=id=>document.getElementById(id);
 function log(m){$("log").textContent=m;}
@@ -139,12 +141,6 @@ async function refreshEg(){
 }
 
 // ── plant + sink data ───────────────────────────────────────────────────────
-const PLANT_DISC_BUF=(()=>{const c=new Uint8Array([108,117,23,253,84,98,56,76]);return c;})();
-// actual discriminator for Plant
-function getPlantDisc(){
-  const crypto=window.crypto||window.msCrypto;
-  return null; // computed via subtle when needed
-}
 
 async function loadPlants(){
   if(!active){$("plants-grid").innerHTML='<div class="empty">connect your wallet to see your plants</div>';return;}
@@ -184,10 +180,10 @@ async function loadPlants(){
         const d=si.data;let o=8;
         const plantKey=new solanaWeb3.PublicKey(d.slice(o,o+32));o+=32;
         const owner=new solanaWeb3.PublicKey(d.slice(o,o+32));o+=32;
-        const root=d.readBigUInt64LE(o);o+=8;
-        const leaf=d.readBigUInt64LE(o);o+=8;
-        const last=d.readBigUInt64LE(o);o+=8;
-        const harvested=d.readBigUInt64LE(o);o+=8;
+        const root=rdU64(d,o);o+=8;
+        const leaf=rdU64(d,o);o+=8;
+        const last=rdU64(d,o);o+=8;
+        const harvested=rdU64(d,o);o+=8;
         sink={owner:owner.toBase58(),root,leaf,last,harvested,pda:SINK};
       }
       cards.push({...pl,sink,SINK});
@@ -283,7 +279,7 @@ function renderCards(cards){
 // ── instructions ────────────────────────────────────────────────────────────
 async function sendTx(keys,data,label){
   log(label+"…");
-  const tx=new solanaWeb3.Transaction().add(new solanaWeb3.TransactionInstruction({programId:PID,keys,data:Buffer.from(data)}));
+  const tx=new solanaWeb3.Transaction().add(new solanaWeb3.TransactionInstruction({programId:PID,keys,data:Uint8Array.from(data)}));
   tx.feePayer=active.pk;tx.recentBlockhash=(await conn.getLatestBlockhash()).blockhash;
   const signed=await active.wallet.signTransaction(tx);
   const sig=await conn.sendRawTransaction(signed.serialize());
@@ -345,5 +341,4 @@ window.addEventListener("load",async()=>{
   await autoConnect();
 });
 </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/solana-web3.js/1.91.8/index.iife.min.js"></script>
 </body></html>
