@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Carbon Farming — Entropy Garden</title>
+<style>
+:root{--bg:#0B100C;--surface:#10160F;--border:#243224;--bone:#E8E4DA;--ash:#8A9A84;--leaf:#9FD27E;--root:#C8A06A;--hairline:#1E2A1E}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--bone);font-family:'Georgia',serif;min-height:100vh;padding:0 0 80px}
+a{color:var(--leaf);text-decoration:none;border-bottom:1px solid transparent}
+a:hover{border-bottom-color:var(--leaf)}
+.wrap{max-width:1080px;margin:0 auto;padding:48px 28px 0}
+.eyebrow{font-size:11px;color:var(--ash);letter-spacing:.2em;text-transform:uppercase;margin-bottom:28px}
+.eyebrow a{color:var(--ash);border:0}
+h1{font-size:clamp(28px,5vw,48px);font-weight:400;line-height:1.1;margin-bottom:8px;color:var(--bone)}
+h1 em{color:var(--leaf);font-style:italic}
+.tagline{color:var(--ash);font-size:14px;margin-bottom:32px;max-width:68ch;line-height:1.6}
+/* wallet */
+.wallet-bar{display:flex;align-items:center;gap:12px;margin-bottom:32px;flex-wrap:wrap}
+.btn{display:inline-block;padding:8px 16px;border:1px solid var(--border);background:transparent;color:var(--leaf);font-family:inherit;font-size:13px;cursor:pointer;letter-spacing:.05em}
+.btn:hover{background:var(--border)}
+.btn.connected{border-color:var(--leaf);color:var(--bone)}
+.btn-harvest{border-color:var(--root);color:var(--root)}
+.btn-harvest:hover{background:#1a1208}
+.btn-seq{border-color:var(--leaf)}
+#wallet-addr{font-size:12px;color:var(--ash);font-family:monospace}
+#eg-bal{font-size:12px;color:var(--ash);margin-left:auto}
+/* explainer */
+.explainer{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:36px;padding:20px 24px;border:1px solid var(--border);background:var(--surface)}
+.explainer h3{font-size:13px;font-weight:400;letter-spacing:.15em;text-transform:uppercase;color:var(--ash);margin-bottom:8px}
+.explainer p{font-size:13px;color:var(--ash);line-height:1.65}
+.explainer b{color:var(--bone)}
+@media(max-width:640px){.explainer{grid-template-columns:1fr}}
+/* plants grid */
+.section-label{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--ash);margin-bottom:16px}
+#plants-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}
+.carbon-card{background:var(--surface);border:1px solid var(--border);padding:20px;position:relative}
+.carbon-card.has-sink{border-color:#2a3a2a}
+.carbon-card h4{font-size:13px;font-weight:400;color:var(--ash);margin-bottom:12px;font-family:monospace}
+.visual-wrap{display:flex;gap:16px;align-items:flex-start;margin-bottom:14px}
+.stats{flex:1;font-size:12px}
+.stat-row{display:flex;justify-content:space-between;margin-bottom:6px;color:var(--ash)}
+.stat-row b{color:var(--bone)}
+.bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden;margin-bottom:10px}
+.bar span{display:block;height:100%;border-radius:2px;transition:width .4s}
+.balance-row{font-size:11px;color:var(--ash);margin-bottom:12px}
+.balance-row b{color:var(--leaf)}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.empty{text-align:center;color:var(--ash);font-size:13px;padding:60px 20px;grid-column:1/-1}
+#log{margin-top:20px;font-size:11px;color:var(--ash);font-family:monospace;min-height:18px}
+</style>
+</head><body>
+<div class="wrap">
+<p class="eyebrow"><a href="/">← observatory</a> · <a href="/garden.html">your garden</a> · <a href="/rose.html">🌹 your plants</a> · <a href="/ariadne.html" style="color:#E0C878">🧵 ariadne</a></p>
+<h1>carbon <em>farming</em></h1>
+<p class="tagline">Plants sequester chain activity as biomass over time — roots draw from fee pressure, leaves from throughput. Open a carbon sink for any plant you own, poke it to accumulate, harvest when ready. The slower the chain, the deeper the roots grow when it wakes.</p>
+
+<div class="wallet-bar">
+  <button class="btn" id="connect-btn" onclick="connectWallet()">connect wallet</button>
+  <span id="wallet-addr"></span>
+  <span id="eg-bal"></span>
+</div>
+
+<div class="explainer">
+  <div>
+    <h3>🌿 Leaves — throughput</h3>
+    <p>Leaves grow from <b>TPS</b> — how many transactions the chain carries. On a steady chain, canopy fills in smoothly. A busy chain grows <b>dense foliage</b> fast.</p>
+  </div>
+  <div>
+    <h3>🪨 Roots — fee pressure</h3>
+    <p>Roots grow from <b>fee pressure</b>. On today's calm X1, roots stay shallow. As the chain matures and congestion appears, roots will <b>deepen on their own</b> — no action needed.</p>
+  </div>
+</div>
+
+<p class="section-label">your carbon sinks</p>
+<div id="plants-grid"><div class="empty">connect your wallet to see your plants</div></div>
+<div id="log"></div>
+</div>
+
+<script>
+const RPC="https://rpc.mainnet.x1.xyz";
+const PID=new solanaWeb3.PublicKey("8gTX3w2mAkKhGip9Mmvhb3gkcETugkfLEvmT4BNTh1By");
+const TOKEN_PROGRAM=new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+const ATA_PROGRAM=new solanaWeb3.PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
+const conn=new solanaWeb3.Connection(RPC,"confirmed");
+const te=s=>new TextEncoder().encode(s);
+const pda=s=>solanaWeb3.PublicKey.findProgramAddressSync(s,PID)[0];
+const EG_CONFIG=pda([te("eg_config")]),EG_MINT=pda([te("eg_mint")]),EG_AUTH=pda([te("eg_mint_auth")]);
+const feeRid=Buffer.from([0,0]),tpsRid=Buffer.from([1,0]);
+const FEE_FEED=pda([te("weather"),feeRid]),TPS_FEED=pda([te("weather"),tpsRid]);
+const ataKey=o=>solanaWeb3.PublicKey.findProgramAddressSync([o.toBytes(),TOKEN_PROGRAM.toBytes(),EG_MINT.toBytes()],ATA_PROGRAM)[0];
+
+const D={
+  init:[65,40,21,72,133,170,66,51],
+  seq:[18,92,178,99,150,7,65,106],
+  harvest:[235,65,42,204,125,146,138,230],
+};
+
+const PLANT_DISC=(()=>{const c=require?null:null;return null;})();
+let active=null;
+const $=id=>document.getElementById(id);
+function log(m){$("log").textContent=m;}
+
+// ── wallet ─────────────────────────────────────────────────────────────────
+const WALLETS=["backpack","phantom","solflare"];
+async function connectWallet(){
+  for(const name of WALLETS){
+    const w=window[name]||window.solana;
+    if(!w)continue;
+    try{
+      await w.connect();
+      const pk=new solanaWeb3.PublicKey(w.publicKey.toString());
+      active={pk,wallet:w};
+      localStorage.setItem("eg_wallet",name);
+      $("connect-btn").textContent="connected · "+(name.charAt(0).toUpperCase()+name.slice(1));
+      $("connect-btn").classList.add("connected");
+      $("wallet-addr").textContent=pk.toBase58().slice(0,6)+"…"+pk.toBase58().slice(-4);
+      await refreshEg();
+      await loadPlants();
+      return;
+    }catch(e){}
+  }
+  log("no wallet found — install Backpack or Phantom");
+}
+async function autoConnect(){
+  const saved=localStorage.getItem("eg_wallet");
+  if(!saved)return;
+  const w=window[saved]||window.solana;
+  if(!w)return;
+  try{await w.connect({onlyIfTrusted:true});const pk=new solanaWeb3.PublicKey(w.publicKey.toString());active={pk,wallet:w};
+    $("connect-btn").textContent="connected · "+saved;$("connect-btn").classList.add("connected");
+    $("wallet-addr").textContent=pk.toBase58().slice(0,6)+"…"+pk.toBase58().slice(-4);
+    await refreshEg();await loadPlants();}catch(e){}
+}
+async function refreshEg(){
+  if(!active)return;
+  try{const b=await conn.getTokenAccountBalance(ataKey(active.pk));
+    $("eg-bal").textContent="EG: "+b.value.uiAmount?.toLocaleString();}catch(_){}
+}
+
+// ── plant + sink data ───────────────────────────────────────────────────────
+const PLANT_DISC_BUF=(()=>{const c=new Uint8Array([108,117,23,253,84,98,56,76]);return c;})();
+// actual discriminator for Plant
+function getPlantDisc(){
+  const crypto=window.crypto||window.msCrypto;
+  return null; // computed via subtle when needed
+}
+
+async function loadPlants(){
+  if(!active){$("plants-grid").innerHTML='<div class="empty">connect your wallet to see your plants</div>';return;}
+  log("loading…");
+  $("plants-grid").innerHTML='<div class="empty">loading your plants…</div>';
+  try{
+    const all=await conn.getProgramAccounts(PID);
+    // find Plant accounts discriminator: sha256("account:Plant")[:8]
+    const disc=new Uint8Array([108,117,23,253,84,98,56,76]);
+    const plants=[];
+    for(const a of all){
+      const d=a.account.data;
+      if(d.length<140)continue;
+      let match=true;for(let i=0;i<8;i++)if(d[i]!==disc[i]){match=false;break;}
+      if(!match)continue;
+      // decode plant: 8+32(plot)+1(slot)+2(species)+32(genome)+2(optimal)+8+8+2+8+1+8
+      let o=8;
+      const plot=new solanaWeb3.PublicKey(d.slice(o,o+32));o+=32;
+      const slotIndex=d[o];o+=1;
+      o+=2; // species
+      const genome=new Uint8Array(d.slice(o,o+32));o+=32;
+      o+=2+8+8+2+8+1+8; // optimal, planted, last_eval, health, biomass, growth_stage, stress
+      // only show plants this wallet planted (check plot owner) — or show all with sinks
+      // for simplicity: show all plants, let user open sinks for theirs
+      // BUT we only allow harvest/sequester for owner — so show all, gate actions by ownership
+      // check if this wallet owns the plot by looking at the plot account
+      plants.push({pk:a.pubkey,plot,slotIndex,genome,plotOwner:null});
+    }
+    if(!plants.length){$("plants-grid").innerHTML='<div class="empty">no plants found on mainnet — plant one in your garden first</div>';log("");return;}
+    // for each plant, check if there's a carbon sink
+    const cards=[];
+    for(const pl of plants.slice(0,20)){// cap at 20
+      const SINK=pda([te("carbon"),pl.pk.toBytes()]);
+      const si=await conn.getAccountInfo(SINK);
+      let sink=null;
+      if(si){
+        const d=si.data;let o=8;
+        const plantKey=new solanaWeb3.PublicKey(d.slice(o,o+32));o+=32;
+        const owner=new solanaWeb3.PublicKey(d.slice(o,o+32));o+=32;
+        const root=d.readBigUInt64LE(o);o+=8;
+        const leaf=d.readBigUInt64LE(o);o+=8;
+        const last=d.readBigUInt64LE(o);o+=8;
+        const harvested=d.readBigUInt64LE(o);o+=8;
+        sink={owner:owner.toBase58(),root,leaf,last,harvested,pda:SINK};
+      }
+      cards.push({...pl,sink,SINK});
+    }
+    renderCards(cards);
+    log("");
+  }catch(e){log("error: "+e.message);console.error(e);}
+}
+
+// ── rendering ──────────────────────────────────────────────────────────────
+function carbonSvg(genome,rootMass,leafMass,size){
+  const g=genome;
+  const W=size,H=size,cx=W/2,ground=H*0.58,sc=size/240;
+  const rootDepth=Math.min(H*0.36, 6+Math.log10(1+Number(rootMass))*20*sc);
+  const canopyH  =Math.min(H*0.38, 6+Math.log10(1+Number(leafMass))*22*sc);
+  const canopyW  =Math.min(W*0.40, 12+Math.log10(1+Number(leafMass))*18*sc);
+  const stemCol=`hsl(${105+(g[10]%20)},40%,28%)`;
+  const leafCol=`hsl(${100+(g[7]%40)},${50+(g[8]%25)}%,${30+(g[9]%14)}%)`;
+  const rootCol=`hsl(${28+(g[5]%14)},${30+(g[6]%20)}%,${28+(g[4]%12)}%)`;
+  let p=[];
+  p.push(`<rect x="0" y="${ground}" width="${W}" height="${H-ground}" fill="#0d120b" opacity="0.7"/>`);
+  p.push(`<line x1="0" y1="${ground}" x2="${W}" y2="${ground}" stroke="#243224" stroke-width="1"/>`);
+  // roots
+  function root(x,y,ang,len,dep){
+    if(dep<=0||len<3)return;
+    const nx=x+Math.sin(ang)*len,ny=y+Math.cos(ang)*len;
+    if(ny>H-4)return;
+    p.push(`<line x1="${x.toFixed(1)}" y1="${y.toFixed(1)}" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="${rootCol}" stroke-width="${Math.max(0.5,dep*0.7)}" stroke-linecap="round" opacity="0.8"/>`);
+    root(nx,ny,ang-(0.3+(g[dep%32]%8)/25),len*0.68,dep-1);
+    root(nx,ny,ang+(0.3+(g[(dep+7)%32]%8)/25),len*0.68,dep-1);
+  }
+  const rb=2+Math.min(4,Math.round(rootDepth/18));
+  const rd=Math.max(1,Math.round(rootDepth/10));
+  for(let i=0;i<rb;i++){const a=-0.4+(i/(rb-1||1))*0.8;root(cx,ground,a,rootDepth*0.5,rd);}
+  // stem
+  const stemTop=ground-canopyH-8;
+  p.push(`<line x1="${cx}" y1="${ground}" x2="${cx}" y2="${stemTop}" stroke="${stemCol}" stroke-width="${4*sc}" stroke-linecap="round"/>`);
+  // canopy
+  const ln=4+Math.min(8,Math.round(canopyH/12));
+  for(let i=0;i<ln;i++){
+    const t=i/(ln-1||1);
+    const ly=stemTop+t*canopyH*0.85;
+    const side=(i%2?1:-1);
+    const lw=canopyW*(0.4+0.55*(1-t*0.7));
+    const lx=cx+side*lw*0.45;
+    p.push(`<ellipse cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" rx="${(lw*0.52).toFixed(1)}" ry="${(5*sc+canopyH*0.065).toFixed(1)}" fill="${leafCol}" opacity="0.88" transform="rotate(${side*22} ${lx.toFixed(1)} ${ly.toFixed(1)})"/>`);
+  }
+  p.push(`<ellipse cx="${cx}" cy="${stemTop}" rx="${(canopyW*0.3).toFixed(1)}" ry="${(8*sc+canopyH*0.09).toFixed(1)}" fill="${leafCol}" opacity="0.92"/>`);
+  return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">${p.join("")}</svg>`;
+}
+
+function balancePct(root,leaf){
+  const r=Number(root),l=Number(leaf),tot=r+l;
+  if(!tot)return 0;
+  return Math.round(2*Math.min(r,l)*100/tot);
+}
+
+function renderCards(cards){
+  if(!cards.length){$("plants-grid").innerHTML='<div class="empty">no plants found</div>';return;}
+  $("plants-grid").innerHTML="";
+  for(const c of cards){
+    const isOwner=active&&c.sink&&c.sink.owner===active.pk.toBase58();
+    const hasSink=!!c.sink;
+    const root=hasSink?c.sink.root:0n;
+    const leaf=hasSink?c.sink.leaf:0n;
+    const total=Number(root+leaf);
+    const bal=balancePct(root,leaf);
+    const div=document.createElement("div");
+    div.className="carbon-card"+(hasSink?" has-sink":"");
+    div.innerHTML=`
+      <h4>plant ${c.pk.toBase58().slice(0,8)}…</h4>
+      <div class="visual-wrap">
+        <div>${carbonSvg(c.genome,root,leaf,160)}</div>
+        <div class="stats">
+          <div class="stat-row"><span>🌿 leaf</span><b>${Number(leaf).toLocaleString()}</b></div>
+          <div class="bar"><span style="width:${Math.min(100,Math.log10(1+Number(leaf))*14)}%;background:#5a9a3a"></span></div>
+          <div class="stat-row"><span>🪨 root</span><b>${Number(root).toLocaleString()}</b></div>
+          <div class="bar"><span style="width:${Math.min(100,Math.log10(1+Number(root))*14)}%;background:#8a6a3a"></span></div>
+          ${hasSink?`<div class="balance-row">diversity <b>${bal}%</b>${bal>60?' 🌟':bal>30?' ✓':''}</div>`:''}
+          ${hasSink&&c.sink.harvested>0n?`<div class="balance-row">lifetime <b>${(Number(c.sink.harvested)/1e9).toFixed(1)} EG</b> harvested</div>`:''}
+        </div>
+      </div>
+      <div class="actions">
+        ${!hasSink?`<button class="btn btn-seq" onclick="openSink('${c.pk}','${c.plot}',${c.slotIndex})">open carbon sink</button>`:''}
+        ${hasSink?`<button class="btn btn-seq" onclick="sequester('${c.sink.pda}')">sequester</button>`:''}
+        ${hasSink&&isOwner&&total>=100000?`<button class="btn btn-harvest" onclick="harvestCarbon('${c.sink.pda}','${c.pk}')">harvest carbon</button>`:''}
+        ${hasSink&&isOwner&&total<100000?`<div style="font-size:11px;color:var(--ash);padding:6px 0">accumulating… ${total.toLocaleString()} / 100,000</div>`:''}
+      </div>`;
+    $("plants-grid").appendChild(div);
+  }
+}
+
+// ── instructions ────────────────────────────────────────────────────────────
+async function sendTx(keys,data,label){
+  log(label+"…");
+  const tx=new solanaWeb3.Transaction().add(new solanaWeb3.TransactionInstruction({programId:PID,keys,data:Buffer.from(data)}));
+  tx.feePayer=active.pk;tx.recentBlockhash=(await conn.getLatestBlockhash()).blockhash;
+  const signed=await active.wallet.signTransaction(tx);
+  const sig=await conn.sendRawTransaction(signed.serialize());
+  await conn.confirmTransaction(sig,"confirmed");
+  log(label+" ✓  "+sig.slice(0,12)+"…");
+  return sig;
+}
+
+async function openSink(plantKey,plotKey,slotIndex){
+  if(!active){log("connect wallet first");return;}
+  const PLANT=new solanaWeb3.PublicKey(plantKey);
+  const SINK=pda([te("carbon"),PLANT.toBytes()]);
+  try{
+    await sendTx([
+      {pubkey:active.pk,isSigner:true,isWritable:true},
+      {pubkey:PLANT,isSigner:false,isWritable:false},
+      {pubkey:SINK,isSigner:false,isWritable:true},
+      {pubkey:solanaWeb3.SystemProgram.programId,isSigner:false,isWritable:false},
+    ],D.init,"opening sink");
+    await loadPlants();
+  }catch(e){log("error: "+e.message);}
+}
+
+async function sequester(sinkKey){
+  const SINK=new solanaWeb3.PublicKey(sinkKey);
+  try{
+    await sendTx([
+      {pubkey:SINK,isSigner:false,isWritable:true},
+      {pubkey:FEE_FEED,isSigner:false,isWritable:false},
+      {pubkey:TPS_FEED,isSigner:false,isWritable:false},
+    ],D.seq,"sequestering");
+    await loadPlants();
+  }catch(e){log("error: "+e.message);}
+}
+
+async function harvestCarbon(sinkKey,plantKey){
+  if(!active){log("connect wallet first");return;}
+  const SINK=new solanaWeb3.PublicKey(sinkKey);
+  try{
+    await sendTx([
+      {pubkey:active.pk,isSigner:true,isWritable:true},
+      {pubkey:SINK,isSigner:false,isWritable:true},
+      {pubkey:EG_CONFIG,isSigner:false,isWritable:true},
+      {pubkey:EG_MINT,isSigner:false,isWritable:true},
+      {pubkey:EG_AUTH,isSigner:false,isWritable:false},
+      {pubkey:ataKey(active.pk),isSigner:false,isWritable:true},
+      {pubkey:TOKEN_PROGRAM,isSigner:false,isWritable:false},
+      {pubkey:ATA_PROGRAM,isSigner:false,isWritable:false},
+      {pubkey:solanaWeb3.SystemProgram.programId,isSigner:false,isWritable:false},
+    ],D.harvest,"harvesting carbon");
+    await refreshEg();
+    await loadPlants();
+  }catch(e){log("error: "+e.message);}
+}
+
+// ── boot ────────────────────────────────────────────────────────────────────
+window.addEventListener("load",async()=>{
+  await new Promise(r=>setTimeout(r,600));
+  await autoConnect();
+});
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/solana-web3.js/1.91.8/index.iife.min.js"></script>
+</body></html>
