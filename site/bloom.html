@@ -73,6 +73,19 @@ dialog{background:var(--surface);border:1px solid var(--border);color:var(--bone
 .how-it-works li{margin-bottom:8px}
 .how-it-works b{color:var(--bone)}
 .how-it-works .note{font-size:12px;color:var(--leaf);font-style:italic;margin:0}
+.my-stakes{margin-top:32px}
+.my-stakes h3{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--ash);margin-bottom:14px}
+.stake-item{display:flex;align-items:center;gap:14px;padding:12px 16px;border:1px solid var(--border);background:var(--surface);margin-bottom:8px;font-size:13px;flex-wrap:wrap}
+.stake-item .rid{color:var(--ash);font-family:monospace;font-size:12px}
+.stake-item .backed{color:var(--bone)}
+.stake-item .status{margin-left:auto;display:flex;gap:8px;align-items:center}
+.stake-item .won{color:var(--gold)}
+.stake-item .lost{color:var(--ash)}
+.stake-item .pending{color:var(--root)}
+.stake-item .claimed{color:var(--leaf)}
+.btn-mini{padding:5px 12px;font-size:12px;border:1px solid var(--gold);color:var(--gold);background:transparent;cursor:pointer;font-family:inherit}
+.btn-mini:hover{background:#1a160a}
+.btn-mini.close{border-color:var(--ash);color:var(--ash)}
 </style>
 </head><body>
 <div class="wrap">
@@ -143,9 +156,9 @@ dialog{background:var(--surface);border:1px solid var(--border);color:var(--bone
   </div>
 </div>
 
-<div class="recent" id="recent-section" style="display:none">
-  <h3>recent rounds</h3>
-  <div class="round-dots" id="round-dots"></div>
+<div class="my-stakes" id="my-stakes-section" style="display:none">
+  <h3>your stakes &amp; winnings</h3>
+  <div id="my-stakes-list"></div>
 </div>
 <div id="log"></div>
 </div>
@@ -184,7 +197,7 @@ try{window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{re
 async function connectStandard(w){const res=await w.features["standard:connect"].connect();const acct=res.accounts[0];const pk=new solanaWeb3.PublicKey(acct.publicKey??acct.address);const sast=w.features["solana:signAndSendTransaction"];const st=w.features["solana:signTransaction"];const chain=(acct.chains||w.chains||[]).find(c=>String(c).startsWith("x1"))??"solana:mainnet";return{pk,sign:async tx=>{tx.feePayer=pk;tx.recentBlockhash=(await conn.getLatestBlockhash()).blockhash;if(sast){const[out]=await sast.signAndSendTransaction({transaction:tx.serialize({requireAllSignatures:false,verifySignatures:false}),account:acct,chain});return typeof out.signature==="string"?out.signature:base58(out.signature);}const[signed]=await st.signTransaction({transaction:tx.serialize({requireAllSignatures:false,verifySignatures:false}),account:acct});return conn.sendRawTransaction(signed.signedTransaction);}};}
 async function connectBackpack(){const bp=window.backpack?.solana??window.backpack??window.xnft?.solana;if(!bp)throw new Error("Backpack not found");const resp=await bp.connect();const pk=new solanaWeb3.PublicKey((resp?.publicKey??bp.publicKey).toString());return{pk,sign:async tx=>{tx.feePayer=pk;tx.recentBlockhash=(await conn.getLatestBlockhash()).blockhash;const res=await bp.signAndSendTransaction(tx);return res?.signature??res;}};}
 let active=null;
-function onConnected(name){$('wallet-addr').textContent=active.pk.toBase58().slice(0,6)+"…"+active.pk.toBase58().slice(-4);$('connect-btn').textContent="connected · "+name;$('connect-btn').classList.add("connected");try{localStorage.setItem("eg_wallet",name);}catch(e){}try{walletDialog.close();}catch(e){}refreshEg();loadCurrentRound();}
+function onConnected(name){$('wallet-addr').textContent=active.pk.toBase58().slice(0,6)+"…"+active.pk.toBase58().slice(-4);$('connect-btn').textContent="connected · "+name;$('connect-btn').classList.add("connected");try{localStorage.setItem("eg_wallet",name);}catch(e){}try{walletDialog.close();}catch(e){}refreshEg();loadCurrentRound();loadMyStakes();}
 $('connect-btn').onclick=async()=>{try{window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{register:registerWallet}}));}catch(e){}if(window.x1wallet&&!wallets.has("X1 Wallet"))try{registerWallet(window.x1wallet);}catch(e){}await new Promise(r=>setTimeout(r,80));const list=$("walletList");list.innerHTML="";const opts=[];const seen=new Set([...wallets.keys()].map(n=>n.toLowerCase()));for(const[name,w]of wallets)opts.push({label:name,go:async()=>{active=await connectStandard(w);onConnected(name);}});if((window.backpack||window.xnft?.solana)&&!seen.has("backpack"))opts.push({label:"Backpack",go:async()=>{active=await connectBackpack();onConnected("Backpack");}});if(!opts.length){list.innerHTML='<p style="color:var(--ash);font-size:13px;margin-bottom:12px">No wallet detected.</p><a href="https://chromewebstore.google.com/detail/x1-wallet/kcfmcpdmlchhbikbogddmgopmjbflnae" target="_blank" class="wopt">⚡ Install X1 Wallet →</a>';}else{opts.forEach(o=>{const b=document.createElement("button");b.className="wopt";b.textContent=o.label;b.onclick=async()=>{try{await o.go();}catch(e){log("connect failed: "+e.message);}};list.appendChild(b);});}walletDialog.showModal();};
 async function tryAutoConnect(){let saved=null;try{saved=localStorage.getItem("eg_wallet");}catch(e){}if(!saved)return;for(let i=0;i<8;i++){try{window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{register:registerWallet}}));}catch(e){}if(wallets.has(saved)){try{active=await connectStandard(wallets.get(saved));onConnected(saved);return;}catch(e){return;}}if(saved==="Backpack"&&(window.backpack||window.xnft?.solana)){try{active=await connectBackpack();onConnected("Backpack");return;}catch(e){return;}}await new Promise(r=>setTimeout(r,250));}}
 async function refreshEg(){if(!active)return;try{const b=await conn.getTokenAccountBalance(ataKey(active.pk));$('eg-bal').textContent="EG: "+b.value.uiAmount?.toLocaleString();}catch(_){}}
@@ -219,6 +232,73 @@ async function loadById(){
     log("loaded round "+v);
   }catch(e){log("invalid round ID");}
 }
+async function loadMyStakes(){
+  if(!active)return;
+  const sect=$('my-stakes-section'),list=$('my-stakes-list');
+  try{
+    // BloomStake discriminator + player at offset 8
+    const disc=[246,236,233,101,203,99,177,113];
+    const accts=await conn.getProgramAccounts(PID,{filters:[
+      {memcmp:{offset:0,bytes:base58(Uint8Array.from(disc))}},
+      {memcmp:{offset:8,bytes:active.pk.toBase58()}},
+    ]});
+    if(!accts.length){sect.style.display='none';return;}
+    // decode each stake
+    const stakes=accts.map(a=>{
+      const d=a.account.data;let o=8;o+=32; // skip player
+      const rid=rdU64(d,o);o+=8;const bloom=d[o];o+=1;const amt=rdU64(d,o);o+=8;const claimed=d[o]===1;
+      return{rid,bloom,amt,claimed};
+    });
+    // sort newest first
+    stakes.sort((a,b)=>Number(b.rid)-Number(a.rid));
+    // load each round to determine win/loss/pending
+    list.innerHTML='';
+    for(const st of stakes.slice(0,8)){
+      let roundInfo=null;
+      try{const ri=await conn.getAccountInfo(roundPda(st.rid));if(ri)roundInfo=decodeRound(ri.data);}catch(_){}
+      const item=document.createElement('div');item.className='stake-item';
+      const bloomName=BLOOM_NAMES[st.bloom];
+      let statusHtml='';
+      if(!roundInfo){
+        statusHtml='<span class="pending">round closed</span>';
+      } else if(!roundInfo.resolved){
+        statusHtml='<span class="pending">awaiting resolve</span>';
+        // offer resolve if grow passed
+        const sNow=await conn.getSlot();
+        if(sNow>=Number(roundInfo.growEnd))
+          statusHtml=`<span class="pending">ready</span><button class="btn-mini" onclick="resolveById('${st.rid}')">resolve</button>`;
+      } else if(st.claimed){
+        statusHtml='<span class="claimed">claimed ✓</span>';
+      } else if(st.bloom===roundInfo.winner){
+        // compute share
+        const winnerPool=st.bloom===0?Number(roundInfo.s0):Number(roundInfo.s1);
+        const netPool=Number(roundInfo.pool)*0.9;
+        const share=winnerPool>0?(Number(st.amt)*netPool/winnerPool/1e9):0;
+        statusHtml=`<span class="won">won ${share.toFixed(1)} EG</span><button class="btn-mini" onclick="claimById('${st.rid}')">claim</button>`;
+      } else {
+        statusHtml=`<span class="lost">lost</span><button class="btn-mini close" onclick="closeById('${st.rid}')">close</button>`;
+      }
+      item.innerHTML=`<span class="rid">#${st.rid}</span><span class="backed">${bloomName}</span><span class="rid">${Number(st.amt)/1e9} EG</span><span class="status">${statusHtml}</span>`;
+      list.appendChild(item);
+    }
+    sect.style.display='block';
+  }catch(e){console.error("loadMyStakes",e);}
+}
+
+// claim/resolve/close by specific round ID (from the panel)
+async function claimById(rid){
+  currentRound={id:BigInt(rid),pda:roundPda(BigInt(rid)),va:vaultAuth(BigInt(rid)),vault:ataKey(vaultAuth(BigInt(rid)))};
+  await claimWinnings();await loadMyStakes();
+}
+async function resolveById(rid){
+  const ri=await conn.getAccountInfo(roundPda(BigInt(rid)));
+  if(ri){currentRound={...decodeRound(ri.data),pda:roundPda(BigInt(rid)),va:vaultAuth(BigInt(rid)),vault:ataKey(vaultAuth(BigInt(rid)))};await resolveRound();await loadMyStakes();}
+}
+async function closeById(rid){
+  currentRound={id:BigInt(rid),pda:roundPda(BigInt(rid))};
+  await closeLosing();await loadMyStakes();
+}
+
 async function loadCurrentRound(){
   const slot=await conn.getSlot();
   // 1. try the cached round ID first (fast path — works across page loads + for user #2)
