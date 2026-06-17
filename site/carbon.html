@@ -86,6 +86,8 @@ h1 em{color:var(--leaf);font-style:italic}
 </div>
 
 <script>
+const $=id=>document.getElementById(id);
+function log(m){const el=$("log");if(el)el.textContent=m;}
 const RPC="https://rpc.mainnet.x1.xyz";
 const PID=new solanaWeb3.PublicKey("8gTX3w2mAkKhGip9Mmvhb3gkcETugkfLEvmT4BNTh1By");
 const TOKEN_PROGRAM=new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
