@@ -13,7 +13,7 @@ use crate::error::GardenError;
 // ───────────────────────────────────────────────────────────────────────────
 
 pub const BLOOM_COUNT: usize = 2;            // rainbloom(0)=TPS, emberpetal(1)=fees
-pub const COMMIT_SLOTS: u64  = 300;          // ~2 min commit window
+pub const COMMIT_SLOTS: u64  = 1200;          // ~2 min commit window
 pub const GROW_SLOTS:   u64  = 600;          // ~4 min grow window
 pub const TREASURY_CUT_BPS: u64 = 1_000;    // 10% to treasury EG on resolve
 pub const MIN_STAKE:    u64  = 10_000_000_000; // 10 EG (9 decimals)

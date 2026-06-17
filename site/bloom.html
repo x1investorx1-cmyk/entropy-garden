@@ -67,12 +67,30 @@ h1 em{color:var(--leaf);font-style:italic}
 dialog{background:var(--surface);border:1px solid var(--border);color:var(--bone);padding:24px;max-width:320px;border-radius:4px}
 .wopt{display:block;width:100%;text-align:left;margin-bottom:10px;padding:12px 16px;font-size:14px;border:1px solid var(--border);background:transparent;color:var(--leaf);cursor:pointer;font-family:inherit}
 .wopt:hover{background:var(--border)}
+.how-it-works{background:var(--surface);border:1px solid var(--border);padding:20px 24px;margin-bottom:28px}
+.how-it-works h3{font-size:12px;font-weight:400;letter-spacing:.15em;text-transform:uppercase;color:var(--ash);margin-bottom:14px}
+.how-it-works ol{margin:0 0 12px;padding-left:20px;color:var(--ash);font-size:13px;line-height:1.7}
+.how-it-works li{margin-bottom:8px}
+.how-it-works b{color:var(--bone)}
+.how-it-works .note{font-size:12px;color:var(--leaf);font-style:italic;margin:0}
 </style>
 </head><body>
 <div class="wrap">
 <p class="eyebrow"><a href="/">← observatory</a> · <a href="/garden.html">your garden</a> · <a href="/rose.html">🌹 your plants</a> · <a href="/ariadne.html" style="color:var(--gold)">🧵 ariadne</a> · <a href="/carbon.html">🌱 carbon</a></p>
 <h1>the bloom <em>race</em></h1>
 <p class="tagline">Two blooms, two chain signals — each fed by a different current of X1. Back the bloom you think the chain will favour this round. Stake EG; the winning bloom's backers split the pool. The chain decides.</p>
+
+<div class="how-it-works">
+  <h3>how the race works</h3>
+  <ol>
+    <li><b>Open a round.</b> Anyone starts one. This snapshots each bloom's chain signal as a baseline and opens an ~8-minute commit window.</li>
+    <li><b>Back a bloom.</b> While the commit window is open, stake 10–1000 EG on the bloom you think the chain will feed most. One stake per round — choose carefully. Your EG goes into the round's vault.</li>
+    <li><b>The chain grows.</b> After commit closes, a ~4-minute grow window measures the signals. No new stakes.</li>
+    <li><b>Resolve.</b> Anyone clicks "resolve round" after the grow window. The bloom whose signal rose most wins. 10% of the pool goes to the treasury.</li>
+    <li><b>Claim.</b> Winners click "claim winnings" to pull their share from the vault — you must claim while connected; it is not automatic. Losers click "close stake" to reclaim rent (the staked EG is gone to the winners).</li>
+  </ol>
+  <p class="note">Your EG is held safely in the vault until claimed. Nothing is automatic — resolving and claiming are each a transaction someone signs.</p>
+</div>
 
 <div class="wallet-bar">
   <button class="btn" id="connect-btn">connect wallet</button>
@@ -238,27 +256,48 @@ function renderRound(){
     $('card'+r.winner).classList.add("winner");
     $('card'+(1-r.winner)).classList.add("loser");
   }
-  // stake section
-  if(r.phase===0){$('stake-section').style.display='block';}
-  // action buttons
-  $('resolve-btn').style.display=r.phase===1?'inline-block':'none';
-  if(myStake&&r.resolved){
-    if(myStake.bloom===r.winner&&!myStake.claimed){$('claim-btn').style.display='inline-block';}
-    else if(myStake.bloom!==r.winner){$('close-btn').style.display='inline-block';}
-  }
+  // always show the action section (stake during commit, resolve/claim after)
+  $('stake-section').style.display='block';
+  // load my stake FIRST, then decide which buttons to show
+  if(active){loadMyStakeAndButtons(r);} else {updateButtons(r,null);}
   // countdown ticker
   clearInterval(ticker);
-  const target=r.phase===0?Number(r.commitEnd):r.phase===1?Number(r.growEnd):null;
-  if(target){
-    async function tick(){const s=await conn.getSlot();const rem=target-s;if(rem<=0){clearInterval(ticker);loadCurrentRound();return;}const secs=Math.round(rem*0.4);$('countdown')?($('countdown').textContent=secs+"s remaining"):''}
-    tick();ticker=setInterval(tick,3000);
+  const now0=Number(r.commitEnd), now1=Number(r.growEnd);
+  async function tick(){
+    const sNow=await conn.getSlot();
+    const cd=$('countdown'); if(!cd)return;
+    if(r.resolved){cd.textContent="resolved";clearInterval(ticker);return;}
+    if(sNow<now0){cd.textContent=Math.round((now0-sNow)*0.4)+"s — commit open";}
+    else if(sNow<now1){cd.textContent=Math.round((now1-sNow)*0.4)+"s — growing";}
+    else{cd.textContent="ready to resolve";}
   }
-  // load my stake
-  if(active)loadMyStake();
+  tick();ticker=setInterval(tick,3000);
 }
-async function loadMyStake(){
-  if(!active||!currentRound)return;
-  try{const info=await conn.getAccountInfo(stakePda(currentRound.id,active.pk));if(info){myStake=decodeStake(info.data);$('selected-label').textContent=`backed: ${BLOOM_NAMES[myStake.bloom]} (${Number(myStake.amt)/1e9} EG)`;selectedBloom=myStake.bloom;}}catch(_){}
+
+async function loadMyStakeAndButtons(r){
+  myStake=null;
+  try{
+    const info=await conn.getAccountInfo(stakePda(currentRound.id,active.pk));
+    if(info){myStake=decodeStake(info.data);
+      $('selected-label').textContent=`backed: ${BLOOM_NAMES[myStake.bloom]} (${Number(myStake.amt)/1e9} EG)`;
+      selectedBloom=myStake.bloom;}
+  }catch(_){}
+  updateButtons(r,myStake);
+}
+
+async function updateButtons(r,stake){
+  const sNow=await conn.getSlot();
+  const growPassed = sNow >= Number(r.growEnd);
+  // resolve: show whenever grow window passed and not yet resolved (regardless of stored phase)
+  $('resolve-btn').style.display=(!r.resolved && growPassed)?'inline-block':'none';
+  // claim: resolved + I backed the winner + not claimed
+  $('claim-btn').style.display=(r.resolved && stake && stake.bloom===r.winner && !stake.claimed)?'inline-block':'none';
+  // close: resolved + I backed a loser
+  $('close-btn').style.display=(r.resolved && stake && stake.bloom!==r.winner)?'inline-block':'none';
+  // hide stake button if already staked or commit closed
+  const commitOpen = sNow < Number(r.commitEnd) && !r.resolved;
+  const stakeBtn=document.querySelector('.btn-stake');
+  if(stakeBtn) stakeBtn.style.display=(commitOpen && !stake)?'inline-block':'none';
 }
 
 // ── bloom selection ─────────────────────────────────────────────────────────
