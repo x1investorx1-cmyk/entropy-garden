@@ -138,13 +138,19 @@ const D={
 let active=null;
 function onConnected(w){
   active=w;
-  const short=w.pk.toBase58().slice(0,6)+"…"+w.pk.toBase58().slice(-4);
-  const cb=document.getElementById("connect-btn");
-  const wa=document.getElementById("wallet-addr");
+  const addr=w.pk.toBase58();
+  const short=addr.slice(0,6)+"…"+addr.slice(-4);
+  // update connect button (any id variant)
+  const cb=document.getElementById("connectBtn")||document.getElementById("connect-btn");
   if(cb){cb.textContent="connected · "+w.name;cb.classList.add("connected");}
-  if(wa) wa.textContent=short;
+  // update status text (any id variant)
+  const who=document.getElementById("who")||document.getElementById("walletAddr")||document.getElementById("wallet-addr");
+  if(who) who.textContent="connected · "+w.name+" ("+short+")";
+  // show disconnect button if present
+  const db=document.getElementById("disconnectBtn")||document.getElementById("disconnect-btn");
+  if(db){db.style.display="";db.onclick=()=>{EGWallet.disconnect();location.reload();};}
   try{document.getElementById("walletDialog")?.close();}catch(e){}
-  refreshEg();loadPlants();
+  if(typeof refreshEg==="function")refreshEg();if(typeof loadPlants==="function")loadPlants();
 }
 EGWallet.init(conn, onConnected);
 document.getElementById("connect-btn").onclick=()=>EGWallet.showPicker(

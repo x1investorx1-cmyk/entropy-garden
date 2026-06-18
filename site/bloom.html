@@ -194,11 +194,19 @@ const D={open:new Uint8Array([66,235,123,240,8,35,185,159]),stake:new Uint8Array
 let active=null;
 function onConnected(w){
   active=w;
-  $('wallet-addr').textContent=w.pk.toBase58().slice(0,6)+"…"+w.pk.toBase58().slice(-4);
-  $('connect-btn').textContent="connected · "+w.name;
-  $('connect-btn').classList.add("connected");
-  try{walletDialog.close();}catch(e){}
-  refreshEg();loadCurrentRound();loadMyStakes();
+  const addr=w.pk.toBase58();
+  const short=addr.slice(0,6)+"…"+addr.slice(-4);
+  // update connect button (any id variant)
+  const cb=document.getElementById("connectBtn")||document.getElementById("connect-btn");
+  if(cb){cb.textContent="connected · "+w.name;cb.classList.add("connected");}
+  // update status text (any id variant)
+  const who=document.getElementById("who")||document.getElementById("walletAddr")||document.getElementById("wallet-addr");
+  if(who) who.textContent="connected · "+w.name+" ("+short+")";
+  // show disconnect button if present
+  const db=document.getElementById("disconnectBtn")||document.getElementById("disconnect-btn");
+  if(db){db.style.display="";db.onclick=()=>{EGWallet.disconnect();location.reload();};}
+  try{document.getElementById("walletDialog")?.close();}catch(e){}
+  if(typeof refreshEg==="function")refreshEg();if(typeof loadCurrentRound==="function")loadCurrentRound();if(typeof loadMyStakes==="function")loadMyStakes();
 }
 EGWallet.init(conn, onConnected);
 $('connect-btn').onclick=()=>EGWallet.showPicker($('walletDialog'),$('walletList'));
