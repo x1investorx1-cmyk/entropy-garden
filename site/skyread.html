@@ -124,7 +124,7 @@ let wallet=null, predictStorm=null, currentRegion=0, pending=null;
 // ── wallet (via shared wallet.js) ──────────────────────────────
 let active=null;
 function onConnected(w){
-  active=w;
+  active=w; wallet=w;
   const addr=w.pk.toBase58();
   const short=addr.slice(0,6)+"…"+addr.slice(-4);
   // update connect button (any id variant)
