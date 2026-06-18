@@ -95,3 +95,4 @@ pub mod metadata;
 pub mod pulse;
 pub mod carbon;
 pub mod bloom;
+pub mod airdrop;

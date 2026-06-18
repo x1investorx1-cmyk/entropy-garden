@@ -13,6 +13,7 @@ use eg::thread::*;
 use eg::pulse::*;
 use eg::carbon::*;
 use eg::bloom::*;
+use eg::airdrop::*;
 use eg::metadata::*;
 use state::WeatherChannel;
 
@@ -93,6 +94,13 @@ pub mod entropy_garden {
     }
     pub fn harvest_carbon(ctx: Context<HarvestCarbon>) -> Result<()> {
         eg::carbon::harvest_carbon(ctx)
+    }
+
+    pub fn init_airdrop(ctx: Context<InitAirdrop>, merkle_root: [u8; 32], amount_per_claim: u64) -> Result<()> {
+        eg::airdrop::init_airdrop(ctx, merkle_root, amount_per_claim)
+    }
+    pub fn claim_airdrop(ctx: Context<ClaimAirdrop>, proof: Vec<[u8; 32]>) -> Result<()> {
+        eg::airdrop::claim_airdrop(ctx, proof)
     }
 
     pub fn open_round(ctx: Context<OpenRound>, round_id: u64) -> Result<()> {
