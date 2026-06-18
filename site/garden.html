@@ -225,6 +225,7 @@ function onConnected(w){
   if(typeof loadGarden==="function")loadGarden();
 }
 EGWallet.init(conn, onConnected);
+const base58=EGWallet.base58;
 document.getElementById("connectBtn").onclick=()=>EGWallet.showPicker(
   document.getElementById("walletDialog"),document.getElementById("walletList"));
 window.addEventListener("load", ()=>{ setTimeout(()=>EGWallet.autoConnect(),400); });

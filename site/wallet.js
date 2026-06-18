@@ -124,23 +124,41 @@ window.EGWallet = (function(){
     const opts = buildOptions();
     listEl.innerHTML = "";
     if(!opts.length){
-      // no wallet found — show mobile-appropriate install links
       const mobile = isMobile();
-      listEl.innerHTML = `
-        <p style="color:#8A9A84;font-size:13px;margin-bottom:14px">
-          No wallet detected.<br>
-          ${mobile ? "Open this page inside your wallet's browser." : "Install a wallet extension to continue."}
-        </p>
-        <a href="${mobile
-          ? "https://backpack.app/download"
-          : "https://chromewebstore.google.com/detail/x1-wallet/kcfmcpdmlchhbikbogddmgopmjbFlnae"
-        }" target="_blank" style="display:block;padding:12px 16px;border:1px solid #243224;color:#9FD27E;font-size:14px;margin-bottom:10px;text-decoration:none">
-          ${mobile ? "⚡ Open in X1 Wallet / Backpack →" : "⚡ Install X1 Wallet →"}
-        </a>
-        ${mobile ? "" : `<a href="https://backpack.app/download" target="_blank"
-          style="display:block;padding:12px 16px;border:1px solid #243224;color:#C8A06A;font-size:14px;text-decoration:none">
-          🎒 Install Backpack →
-        </a>`}`;
+      if(mobile){
+        // On mobile, wallets only inject inside their in-app browser.
+        const url = "entropygarden.xyz" + location.pathname;
+        listEl.innerHTML = `
+          <p style="color:#E8E4DA;font-size:14px;margin-bottom:12px;line-height:1.5">
+            📱 <b>On mobile, open this page inside your wallet app.</b>
+          </p>
+          <p style="color:#8A9A84;font-size:13px;margin-bottom:14px;line-height:1.6">
+            Mobile browsers can't see wallet apps directly. To connect:
+          </p>
+          <ol style="color:#8A9A84;font-size:13px;line-height:1.7;padding-left:20px;margin-bottom:14px">
+            <li>Open your <b style="color:#9FD27E">X1 Wallet</b> or <b style="color:#C8A06A">Backpack</b> app</li>
+            <li>Find the in-app <b>Browser</b> tab</li>
+            <li>Go to <b style="color:#E8E4DA">${url}</b></li>
+            <li>Connect there — it just works ✓</li>
+          </ol>
+          <button onclick="navigator.clipboard?.writeText('https://${url}').then(()=>{this.textContent='✓ link copied — paste in wallet browser'})"
+            style="display:block;width:100%;padding:12px 16px;border:1px solid #9FD27E;background:transparent;color:#9FD27E;font-size:13px;cursor:pointer;font-family:inherit">
+            📋 copy link for wallet browser
+          </button>`;
+      } else {
+        listEl.innerHTML = `
+          <p style="color:#8A9A84;font-size:13px;margin-bottom:14px">
+            No wallet detected. Install a wallet extension to continue.
+          </p>
+          <a href="https://chromewebstore.google.com/detail/x1-wallet/kcfmcpdmlchhbikbogddmgopmjbflnae" target="_blank"
+            style="display:block;padding:12px 16px;border:1px solid #243224;color:#9FD27E;font-size:14px;margin-bottom:10px;text-decoration:none">
+            ⚡ Install X1 Wallet →
+          </a>
+          <a href="https://backpack.app/download" target="_blank"
+            style="display:block;padding:12px 16px;border:1px solid #243224;color:#C8A06A;font-size:14px;text-decoration:none">
+            🎒 Install Backpack →
+          </a>`;
+      }
     } else {
       opts.forEach(o=>{
         const b = document.createElement("button");
@@ -256,5 +274,6 @@ window.EGWallet = (function(){
     },
 
     isMobile,
+    base58,
   };
 })();
