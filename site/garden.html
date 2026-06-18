@@ -209,6 +209,9 @@ window.addEventListener("error", e => log("error: "+e.message,"bad"));
 // ── wallet (via shared wallet.js) ──────────────────────────────
 let active=null;
 function onConnected(w){
+  // compatibility aliases: garden uses .publicKey and .signAndSend
+  w.publicKey = w.pk;
+  w.signAndSend = w.sign;
   active=w;
   const addr=w.pk.toBase58();
   const short=addr.slice(0,6)+"…"+addr.slice(-4);
