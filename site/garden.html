@@ -229,6 +229,27 @@ function onConnected(w){
 }
 EGWallet.init(conn, onConnected);
 const base58=EGWallet.base58;
+const dv=b=>new DataView(b.buffer,b.byteOffset,b.byteLength);
+function decPlot(buf){
+  const d=dv(buf);let o=8;
+  const owner=new PublicKey(buf.slice(o,o+32));o+=32;
+  const region=new PublicKey(buf.slice(o,o+32));o+=32;
+  const plotIndex=d.getUint32(o,true);o+=4;
+  const soil=d.getBigUint64(o,true);o+=8;
+  const plants=[];
+  for(let i=0;i<6;i++){const tag=d.getUint8(o);o+=1;
+    if(tag){plants.push(new PublicKey(buf.slice(o,o+32)));o+=32;}else plants.push(null);}
+  return{owner,region,plotIndex,soil,plants};
+}
+function decPlant(buf){
+  const d=dv(buf);
+  const genome=new Uint8Array(buf.slice(43,75));
+  return{genome,slotIndex:d.getUint8(40),species:d.getUint16(41,true),
+    optimal:d.getUint16(75,true),lastEval:d.getBigUint64(85,true),
+    health:d.getUint16(93,true),biomass:d.getBigUint64(95,true),
+    stage:d.getUint8(103),stress:d.getBigUint64(104,true)};
+}
+
 document.getElementById("connectBtn").onclick=()=>EGWallet.showPicker(
   document.getElementById("walletDialog"),document.getElementById("walletList"));
 window.addEventListener("load", ()=>{ setTimeout(()=>EGWallet.autoConnect(),400); });
