@@ -230,7 +230,7 @@ async function doClaim(){
       {pubkey:TOKEN_PROGRAM,isSigner:false,isWritable:false},
       {pubkey:ATA_PROGRAM,isSigner:false,isWritable:false},
       {pubkey:SystemProgram.programId,isSigner:false,isWritable:false},
-    ],data:Buffer.from(data)});
+    ],data:data});
     const tx=new Transaction().add(ix);
     const sig=await active.sign(tx);
     st.innerHTML='<span class="warn">confirming…</span>';
