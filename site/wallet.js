@@ -53,18 +53,29 @@ window.EGWallet = (function(){
     return {
       pk, name: w.name,
       sign: async tx => {
-        tx.feePayer = pk;
-        tx.recentBlockhash = (await _conn.getLatestBlockhash()).blockhash;
-        if(sast){
-          const ser = tx.serialize({requireAllSignatures:false,verifySignatures:false});
-          const [out] = await sast.signAndSendTransaction({transaction:ser,account:acct,chain});
-          return typeof out.signature==="string" ? out.signature : base58(out.signature);
+        async function attempt(){
+          tx.feePayer = pk;
+          // fetch a FRESH finalized blockhash as late as possible (longer validity)
+          tx.recentBlockhash = (await _conn.getLatestBlockhash("finalized")).blockhash;
+          if(sast){
+            const ser = tx.serialize({requireAllSignatures:false,verifySignatures:false});
+            const [out] = await sast.signAndSendTransaction({transaction:ser,account:acct,chain});
+            return typeof out.signature==="string" ? out.signature : base58(out.signature);
+          }
+          const [signed] = await st.signTransaction({
+            transaction: tx.serialize({requireAllSignatures:false,verifySignatures:false}),
+            account: acct
+          });
+          return _conn.sendRawTransaction(signed.signedTransaction);
         }
-        const [signed] = await st.signTransaction({
-          transaction: tx.serialize({requireAllSignatures:false,verifySignatures:false}),
-          account: acct
-        });
-        return _conn.sendRawTransaction(signed.signedTransaction);
+        try{ return await attempt(); }
+        catch(e){
+          // auto-retry once on stale blockhash
+          if(String(e.message||e).toLowerCase().includes("blockhash")){
+            return await attempt();
+          }
+          throw e;
+        }
       }
     };
   }
@@ -77,10 +88,19 @@ window.EGWallet = (function(){
     return {
       pk, name: "Backpack",
       sign: async tx => {
-        tx.feePayer = pk;
-        tx.recentBlockhash = (await _conn.getLatestBlockhash()).blockhash;
-        const res = await bp.signAndSendTransaction(tx);
-        return res?.signature ?? res;
+        async function attempt(){
+          tx.feePayer = pk;
+          tx.recentBlockhash = (await _conn.getLatestBlockhash("finalized")).blockhash;
+          const res = await bp.signAndSendTransaction(tx);
+          return res?.signature ?? res;
+        }
+        try{ return await attempt(); }
+        catch(e){
+          if(String(e.message||e).toLowerCase().includes("blockhash")){
+            return await attempt();
+          }
+          throw e;
+        }
       }
     };
   }
