@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claim your seed EG · Entropy Garden</title>
+<style>
+  :root{
+    --bg:#0d0f0d; --surface:#141814; --border:#243224; --bone:#E8E4DA;
+    --ash:#8A9A84; --leaf:#9FD27E; --gold:#C8A06A; --root:#B5763A;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--bone);
+    font-family:ui-monospace,'SF Mono',Menlo,monospace;line-height:1.6;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:620px;margin:0 auto;padding:32px 20px 80px}
+  .nav{font-size:12px;color:var(--ash);margin-bottom:40px}
+  .nav a{color:var(--ash);text-decoration:none;margin-right:4px}
+  .nav a:hover{color:var(--leaf)}
+  h1{font-size:30px;margin:0 0 8px;letter-spacing:-.5px}
+  .sub{color:var(--ash);font-size:15px;margin-bottom:28px}
+  .card{background:var(--surface);border:1px solid var(--border);
+    border-radius:10px;padding:28px;margin-bottom:20px}
+  .story{font-size:13px;color:var(--ash);line-height:1.7;margin-bottom:8px}
+  .story b{color:var(--bone)}
+  .big{font-size:22px;color:var(--leaf);margin:6px 0}
+  .btn{display:inline-block;padding:13px 26px;font-size:15px;font-family:inherit;
+    border:1px solid var(--leaf);background:transparent;color:var(--leaf);
+    cursor:pointer;border-radius:6px;text-decoration:none;transition:.15s}
+  .btn:hover{background:#16210f}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn-primary{background:var(--leaf);color:#0d0f0d;font-weight:600}
+  .btn-primary:hover{background:#b6e295}
+  .status{font-size:14px;margin-top:18px;min-height:22px}
+  .ok{color:var(--leaf)} .warn{color:var(--gold)} .err{color:var(--root)}
+  .addr{font-size:12px;color:var(--ash);word-break:break-all}
+  dialog{background:var(--surface);border:1px solid var(--border);color:var(--bone);
+    padding:24px;max-width:340px;border-radius:10px}
+  dialog::backdrop{background:rgba(0,0,0,.6)}
+  .wopt{display:block;width:100%;text-align:left;margin-bottom:10px;padding:12px 16px;
+    font-size:14px;border:1px solid var(--border);background:transparent;color:var(--leaf);
+    cursor:pointer;border-radius:6px;font-family:inherit}
+  .wopt:hover{background:#16210f}
+  .seed{font-size:48px;text-align:center;margin:10px 0}
+  .next{margin-top:24px;padding-top:20px;border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="nav">
+    <a href="/">← observatory</a> ·
+    <a href="/garden.html">your garden</a> ·
+    <a href="/rose.html">🌹 plants</a> ·
+    <a href="/bloom.html">🌸 bloom race</a>
+  </div>
+
+  <div class="seed">🌱</div>
+  <h1>The garden is open</h1>
+  <p class="sub">Claim your founding gardener's seed — 250 EG to plant your first garden.</p>
+
+  <div class="card">
+    <p class="story"><b>Entropy Garden</b> is a living on-chain world. The blockchain's
+      own weather grows your plants. <b>1 billion EG, fixed forever</b> — 90% mined by
+      playing, no presale, no team dump. The chain is the only printer, and it only
+      prints for gardeners.</p>
+    <p class="story">137 founding wallets can claim 250 EG each to begin. This is your seed.</p>
+  </div>
+
+  <div class="card" id="action-card">
+    <div id="connect-state">
+      <button class="btn btn-primary" id="connect-btn">connect wallet</button>
+      <p class="status" id="status">connect to check if you're a founding gardener</p>
+    </div>
+  </div>
+
+  <div class="card next" id="next-card" style="display:none">
+    <p class="story">Your seed is planted in your wallet. Now grow it:</p>
+    <a href="/garden.html" class="btn btn-primary" style="margin-top:8px">🌱 plant your first seed →</a>
+  </div>
+</div>
+
+<dialog id="walletDialog">
+  <h3 style="margin-top:0">Connect wallet</h3>
+  <div id="walletList"></div>
+  <button class="btn" onclick="walletDialog.close()" style="margin-top:6px;font-size:13px">cancel</button>
+  <p style="color:var(--ash);font-size:12px;margin-top:10px">X1 Wallet, Backpack, or any Wallet Standard wallet on X1 Mainnet.</p>
+</dialog>
+
+<script src="https://unpkg.com/@solana/web3.js@1.95.8/lib/index.iife.min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const RPC = "https://rpc.mainnet.x1.xyz";
+const conn = new solanaWeb3.Connection(RPC, "confirmed");
+const { PublicKey, Transaction, TransactionInstruction, SystemProgram } = solanaWeb3;
+
+// ── addresses ──
+const PID = new PublicKey("8gTX3w2mAkKhGip9Mmvhb3gkcETugkfLEvmT4BNTh1By");
+const TOKEN_PROGRAM = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+const ATA_PROGRAM = new PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
+const te = s => new TextEncoder().encode(s);
+const pdaOf = s => PublicKey.findProgramAddressSync(s, PID)[0];
+const EG_CONFIG = pdaOf([te("eg_config")]);
+const EG_MINT = pdaOf([te("eg_mint")]);
+const AIRDROP = pdaOf([te("airdrop_config")]);
+const COMMUNITY_AUTH = pdaOf([te("eg_community")]);
+const ata = (owner, mint=EG_MINT) =>
+  PublicKey.findProgramAddressSync([owner.toBytes(), TOKEN_PROGRAM.toBytes(), mint.toBytes()], ATA_PROGRAM)[0];
+const COMMUNITY_EG = ata(COMMUNITY_AUTH);
+const D_CLAIM = [137,50,122,111,89,254,8,20];
+
+function base58(bytes){const A="123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";let x=0n;for(const b of bytes)x=(x<<8n)+BigInt(b);let s="";while(x>0n){s=A[Number(x%58n)]+s;x/=58n;}return s||"1";}
+
+// ── wallet (page-specific, Wallet Standard + Backpack) ──
+const wallets = new Map();
+function registerWallet(w){try{if(!w?.features?.["standard:connect"])return;const c=w.chains||[];const ok=!c.length||c.some(x=>String(x).startsWith("solana")||String(x).startsWith("x1"));if(ok)wallets.set(w.name,w);}catch(e){}}
+window.addEventListener("wallet-standard:register-wallet",ev=>ev.detail&&registerWallet(ev.detail));
+try{window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{register:registerWallet}}));}catch(e){}
+
+async function connectStandard(w){
+  const res=await w.features["standard:connect"].connect();
+  const acct=res.accounts[0];
+  const pk=new PublicKey(acct.publicKey??acct.address);
+  const sast=w.features["solana:signAndSendTransaction"];
+  const st=w.features["solana:signTransaction"];
+  const chain=(acct.chains||w.chains||[]).find(c=>String(c).startsWith("x1"))??"solana:mainnet";
+  return{pk,name:w.name,sign:async tx=>{
+    tx.feePayer=pk;tx.recentBlockhash=(await conn.getLatestBlockhash("finalized")).blockhash;
+    if(sast){const[out]=await sast.signAndSendTransaction({transaction:tx.serialize({requireAllSignatures:false,verifySignatures:false}),account:acct,chain});return typeof out.signature==="string"?out.signature:base58(out.signature);}
+    const[signed]=await st.signTransaction({transaction:tx.serialize({requireAllSignatures:false,verifySignatures:false}),account:acct});
+    return conn.sendRawTransaction(signed.signedTransaction);
+  }};
+}
+async function connectBackpack(){
+  const bp=window.backpack?.solana??window.backpack??window.xnft?.solana;
+  if(!bp)throw new Error("Backpack not found");
+  const resp=await bp.connect();
+  const pk=new PublicKey((resp?.publicKey??bp.publicKey).toString());
+  return{pk,name:"Backpack",sign:async tx=>{
+    tx.feePayer=pk;tx.recentBlockhash=(await conn.getLatestBlockhash("finalized")).blockhash;
+    const res=await bp.signAndSendTransaction(tx);return res?.signature??res;
+  }};
+}
+
+let active=null;
+$("connect-btn").onclick=async()=>{
+  try{window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{register:registerWallet}}));}catch(e){}
+  if(window.x1wallet&&!wallets.has("X1 Wallet"))try{registerWallet(window.x1wallet);}catch(e){}
+  const list=$("walletList");list.innerHTML='<p style="color:var(--ash);font-size:13px">detecting…</p>';
+  try{walletDialog.showModal();}catch(e){}
+  await new Promise(r=>setTimeout(r,400));
+  const opts=[];const seen=new Set([...wallets.keys()].map(n=>n.toLowerCase()));
+  for(const[name,w]of wallets)opts.push({label:name,go:()=>connectStandard(w)});
+  if((window.backpack||window.xnft?.solana)&&!seen.has("backpack"))opts.push({label:"Backpack",go:()=>connectBackpack()});
+  list.innerHTML="";
+  if(!opts.length){
+    const mobile=/Android|iPhone|iPad/i.test(navigator.userAgent);
+    list.innerHTML=mobile
+      ?'<p style="color:var(--bone);font-size:13px">📱 Open this page inside your X1 Wallet or Backpack app\'s browser to connect.</p>'
+      :'<p style="color:var(--ash);font-size:13px;margin-bottom:10px">No wallet detected.</p><a href="https://backpack.app/download" target="_blank" class="wopt">🎒 Install Backpack →</a>';
+    return;
+  }
+  opts.forEach(o=>{const b=document.createElement("button");b.className="wopt";b.textContent=o.label;
+    b.onclick=async()=>{b.textContent="connecting…";try{active=await o.go();onConnected();}catch(e){b.textContent=o.label+" (try again)";}};
+    list.appendChild(b);});
+};
+
+// ── proofs + claim ──
+let PROOFS={};
+async function onConnected(){
+  try{walletDialog.close();}catch(e){}
+  const addr=active.pk.toBase58();
+  $("status").innerHTML='checking eligibility… <span class="addr">'+addr.slice(0,8)+"…"+addr.slice(-6)+"</span>";
+
+  // load proofs if not loaded
+  if(Object.keys(PROOFS).length===0){
+    try{PROOFS=await (await fetch("/airdrop-proofs.json")).json();}
+    catch(e){$("status").innerHTML='<span class="err">couldn\'t load the eligibility list — try refreshing</span>';return;}
+  }
+
+  const eligible=Object.prototype.hasOwnProperty.call(PROOFS,addr);
+  if(!eligible){
+    $("connect-state").innerHTML=`
+      <p class="status warn">This wallet isn't on the founding list.</p>
+      <p class="story" style="margin-top:12px">But the garden is open to everyone — you don't need an airdrop to play. Plant a seed, tend it through real weather, and mine your own EG.</p>
+      <a href="/garden.html" class="btn" style="margin-top:14px">🌱 enter the garden →</a>`;
+    return;
+  }
+
+  // eligible — check if already claimed
+  const claimRec=pdaOf([te("airdrop_claim"),active.pk.toBytes()]);
+  const claimed=await conn.getAccountInfo(claimRec).catch(()=>null);
+  if(claimed){
+    $("connect-state").innerHTML=`
+      <p class="big">✓ You've claimed your 250 EG</p>
+      <p class="story">Your seed is already in your wallet. Time to grow it.</p>`;
+    $("next-card").style.display="block";
+    return;
+  }
+
+  // eligible + unclaimed — show claim button
+  $("connect-state").innerHTML=`
+    <p class="big">🌱 You're a founding gardener</p>
+    <p class="story">You're eligible to claim <b>250 EG</b> — your seed to begin.</p>
+    <button class="btn btn-primary" id="claim-btn" style="margin-top:14px">claim your 250 EG</button>
+    <p class="status" id="claim-status"></p>`;
+  $("claim-btn").onclick=doClaim;
+}
+
+async function doClaim(){
+  const btn=$("claim-btn"),st=$("claim-status");
+  btn.disabled=true;st.innerHTML='<span class="warn">sign in your wallet…</span>';
+  try{
+    const proofHex=PROOFS[active.pk.toBase58()];
+    const proof=proofHex.map(h=>{const a=new Uint8Array(32);for(let i=0;i<32;i++)a[i]=parseInt(h.substr(i*2,2),16);return a;});
+    const lenBuf=new Uint8Array(4);new DataView(lenBuf.buffer).setUint32(0,proof.length,true);
+    const proofBuf=new Uint8Array(4+32*proof.length);proofBuf.set(lenBuf,0);proof.forEach((p,i)=>proofBuf.set(p,4+i*32));
+    const data=new Uint8Array(8+proofBuf.length);data.set(D_CLAIM,0);data.set(proofBuf,8);
+
+    const claimRec=pdaOf([te("airdrop_claim"),active.pk.toBytes()]);
+    const claimerEg=ata(active.pk);
+    const ix=new TransactionInstruction({programId:PID,keys:[
+      {pubkey:active.pk,isSigner:true,isWritable:true},
+      {pubkey:AIRDROP,isSigner:false,isWritable:true},
+      {pubkey:claimRec,isSigner:false,isWritable:true},
+      {pubkey:COMMUNITY_EG,isSigner:false,isWritable:true},
+      {pubkey:COMMUNITY_AUTH,isSigner:false,isWritable:false},
+      {pubkey:claimerEg,isSigner:false,isWritable:true},
+      {pubkey:EG_MINT,isSigner:false,isWritable:false},
+      {pubkey:EG_CONFIG,isSigner:false,isWritable:false},
+      {pubkey:TOKEN_PROGRAM,isSigner:false,isWritable:false},
+      {pubkey:ATA_PROGRAM,isSigner:false,isWritable:false},
+      {pubkey:SystemProgram.programId,isSigner:false,isWritable:false},
+    ],data:Buffer.from(data)});
+    const tx=new Transaction().add(ix);
+    const sig=await active.sign(tx);
+    st.innerHTML='<span class="warn">confirming…</span>';
+    await conn.confirmTransaction(sig,"confirmed");
+    // success
+    $("connect-state").innerHTML=`
+      <div class="seed">🌷</div>
+      <p class="big">250 EG claimed!</p>
+      <p class="story">Your seed is in your wallet. Welcome to the garden, founding gardener.</p>`;
+    $("next-card").style.display="block";
+  }catch(e){
+    btn.disabled=false;
+    const msg=String(e.message||e);
+    st.innerHTML='<span class="err">'+(msg.includes("already")||msg.includes("0x0")?"already claimed — check your wallet":msg.slice(0,80))+"</span>";
+  }
+}
+</script>
+</body>
+</html>
