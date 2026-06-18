@@ -162,7 +162,7 @@ window.EGWallet = (function(){
         listEl.appendChild(b);
       });
     }
-    try{ dialogEl.showModal(); }catch(e){}
+    if(!dialogEl.open){ try{ dialogEl.showModal(); }catch(e){ try{ dialogEl.setAttribute("open",""); }catch(_){} } }
   }
 
   // ── session persistence ───────────────────────────────────────────
@@ -237,6 +237,11 @@ window.EGWallet = (function(){
 
     // Show the wallet picker. Pass dialog and list DOM elements.
     async showPicker(dialogEl, listEl){
+      if(!dialogEl || !listEl){ console.error("EGWallet: dialog/list element missing"); return; }
+      // open immediately with a detecting state (feels instant on mobile)
+      listEl.innerHTML = '<p style="color:#8A9A84;font-size:13px;padding:8px 0">detecting wallets…</p>';
+      try{ dialogEl.showModal(); }catch(e){ try{ dialogEl.setAttribute("open",""); }catch(_){} }
+      // now discover and populate
       await discoverWallets();
       showPicker(dialogEl, listEl);
     },
