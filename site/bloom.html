@@ -164,6 +164,7 @@ dialog{background:var(--surface);border:1px solid var(--border);color:var(--bone
 </div>
 
 <script src="https://unpkg.com/@solana/web3.js@1.95.8/lib/index.iife.min.js"></script>
+<script src="/wallet.js"></script>
 <script>
 const $=id=>document.getElementById(id);
 function log(m){$('log').textContent=m;}
@@ -189,17 +190,18 @@ const vaultAuth=id=>pda([te("bloom_vault"),enc64(id)]);
 const stakePda=(id,pk)=>pda([te("bloom_stake"),enc64(id),pk.toBytes()]);
 const D={open:new Uint8Array([66,235,123,240,8,35,185,159]),stake:new Uint8Array([106,104,54,20,55,8,192,151]),resolve:new Uint8Array([165,114,237,158,1,36,70,254]),claim:new Uint8Array([161,215,24,59,14,236,242,221]),closeLosing:new Uint8Array([229,174,138,138,43,28,152,68])};
 
-// ── wallet ─────────────────────────────────────────────────────────────────
-const wallets=new Map();
-function registerWallet(w){try{if(!w?.features?.["standard:connect"])return;const chains=w.chains||[];const ok=!chains.length||chains.some(c=>String(c).startsWith("solana")||String(c).startsWith("x1"));if(ok)wallets.set(w.name,w);}catch(e){}}
-window.addEventListener("wallet-standard:register-wallet",ev=>ev.detail&&registerWallet(ev.detail));
-try{window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{register:registerWallet}}));}catch(e){}
-async function connectStandard(w){const res=await w.features["standard:connect"].connect();const acct=res.accounts[0];const pk=new solanaWeb3.PublicKey(acct.publicKey??acct.address);const sast=w.features["solana:signAndSendTransaction"];const st=w.features["solana:signTransaction"];const chain=(acct.chains||w.chains||[]).find(c=>String(c).startsWith("x1"))??"solana:mainnet";return{pk,sign:async tx=>{tx.feePayer=pk;tx.recentBlockhash=(await conn.getLatestBlockhash()).blockhash;if(sast){const[out]=await sast.signAndSendTransaction({transaction:tx.serialize({requireAllSignatures:false,verifySignatures:false}),account:acct,chain});return typeof out.signature==="string"?out.signature:base58(out.signature);}const[signed]=await st.signTransaction({transaction:tx.serialize({requireAllSignatures:false,verifySignatures:false}),account:acct});return conn.sendRawTransaction(signed.signedTransaction);}};}
-async function connectBackpack(){const bp=window.backpack?.solana??window.backpack??window.xnft?.solana;if(!bp)throw new Error("Backpack not found");const resp=await bp.connect();const pk=new solanaWeb3.PublicKey((resp?.publicKey??bp.publicKey).toString());return{pk,sign:async tx=>{tx.feePayer=pk;tx.recentBlockhash=(await conn.getLatestBlockhash()).blockhash;const res=await bp.signAndSendTransaction(tx);return res?.signature??res;}};}
+// ── wallet (via shared wallet.js) ────────────────────────────────────────────
 let active=null;
-function onConnected(name){$('wallet-addr').textContent=active.pk.toBase58().slice(0,6)+"…"+active.pk.toBase58().slice(-4);$('connect-btn').textContent="connected · "+name;$('connect-btn').classList.add("connected");try{localStorage.setItem("eg_wallet",name);}catch(e){}try{walletDialog.close();}catch(e){}refreshEg();loadCurrentRound();loadMyStakes();}
-$('connect-btn').onclick=async()=>{try{window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{register:registerWallet}}));}catch(e){}if(window.x1wallet&&!wallets.has("X1 Wallet"))try{registerWallet(window.x1wallet);}catch(e){}await new Promise(r=>setTimeout(r,80));const list=$("walletList");list.innerHTML="";const opts=[];const seen=new Set([...wallets.keys()].map(n=>n.toLowerCase()));for(const[name,w]of wallets)opts.push({label:name,go:async()=>{active=await connectStandard(w);onConnected(name);}});if((window.backpack||window.xnft?.solana)&&!seen.has("backpack"))opts.push({label:"Backpack",go:async()=>{active=await connectBackpack();onConnected("Backpack");}});if(!opts.length){list.innerHTML='<p style="color:var(--ash);font-size:13px;margin-bottom:12px">No wallet detected.</p><a href="https://chromewebstore.google.com/detail/x1-wallet/kcfmcpdmlchhbikbogddmgopmjbflnae" target="_blank" class="wopt">⚡ Install X1 Wallet →</a>';}else{opts.forEach(o=>{const b=document.createElement("button");b.className="wopt";b.textContent=o.label;b.onclick=async()=>{try{await o.go();}catch(e){log("connect failed: "+e.message);}};list.appendChild(b);});}walletDialog.showModal();};
-async function tryAutoConnect(){let saved=null;try{saved=localStorage.getItem("eg_wallet");}catch(e){}if(!saved)return;for(let i=0;i<8;i++){try{window.dispatchEvent(new CustomEvent("wallet-standard:app-ready",{detail:{register:registerWallet}}));}catch(e){}if(wallets.has(saved)){try{active=await connectStandard(wallets.get(saved));onConnected(saved);return;}catch(e){return;}}if(saved==="Backpack"&&(window.backpack||window.xnft?.solana)){try{active=await connectBackpack();onConnected("Backpack");return;}catch(e){return;}}await new Promise(r=>setTimeout(r,250));}}
+function onConnected(w){
+  active=w;
+  $('wallet-addr').textContent=w.pk.toBase58().slice(0,6)+"…"+w.pk.toBase58().slice(-4);
+  $('connect-btn').textContent="connected · "+w.name;
+  $('connect-btn').classList.add("connected");
+  try{walletDialog.close();}catch(e){}
+  refreshEg();loadCurrentRound();loadMyStakes();
+}
+EGWallet.init(conn, onConnected);
+$('connect-btn').onclick=()=>EGWallet.showPicker($('walletDialog'),$('walletList'));
 async function refreshEg(){if(!active)return;try{const b=await conn.getTokenAccountBalance(ataKey(active.pk));$('eg-bal').textContent="EG: "+b.value.uiAmount?.toLocaleString();}catch(_){}}
 
 // ── round state ─────────────────────────────────────────────────────────────
@@ -467,6 +469,6 @@ async function closeLosing(){
 }
 
 // boot
-window.addEventListener("load",()=>{setTimeout(tryAutoConnect,300);setTimeout(loadCurrentRound,500);});
+window.addEventListener("load",()=>{setTimeout(()=>EGWallet.autoConnect(),300);setTimeout(loadCurrentRound,500);});
 </script>
 </body></html>
