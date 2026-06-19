@@ -279,24 +279,49 @@ $("commitBtn").onclick=async()=>{
     ],data,"forecast staked");
     // +5 slot buffer: wait slightly past the window close to avoid ForecastNotReady
     pending={forecast,region,commitSlot,windowSlots,resolveSlot:commitSlot+windowSlots+5,predictStorm};
-    window._resolveRetries=0;
     startResolveCountdown();
   }catch(e){log("forecast failed: "+(e.message||e),"bad");$("commitBtn").disabled=false;}
 };
+
+async function feedHasFreshSample(region, resolveSlot){
+  try{
+    const feed=await conn.getAccountInfo(feedPda(region));
+    if(!feed)return false;
+    const d=feed.data;
+    const len=d[11]; if(len===0)return false;
+    const N=64, samplesOff=12, slotsOff=samplesOff+N*2;
+    const dv=new DataView(d.buffer,d.byteOffset,d.byteLength);
+    for(let i=0;i<len;i++){
+      const slotLo=dv.getUint32(slotsOff+i*8,true);
+      const slotHi=dv.getUint32(slotsOff+i*8+4,true);
+      const sampleSlot=BigInt(slotLo)+(BigInt(slotHi)<<32n);
+      if(sampleSlot>=BigInt(resolveSlot))return true;
+    }
+    return false;
+  }catch(e){return false;}
+}
 
 function startResolveCountdown(){
   const tick=async()=>{
     if(!pending)return;
     const now=await conn.getSlot();
     const left=pending.resolveSlot-now;
-    if(left<=0){
+    if(left>0){
+      const secs=Math.ceil(left/2.5);
+      $("pending").innerHTML=`<small>forecast: ${pending.region===0?"dry field":"rainline"} → <b>${pending.predictStorm?"storm":"calm"}</b> · window closes in ${secs}s (${left} slots)</small>`;
+      setTimeout(tick,2000);
+      return;
+    }
+    // slots have passed — now check the feed for a fresh sample
+    const ready=await feedHasFreshSample(pending.region,pending.resolveSlot);
+    if(ready){
       $("pending").innerHTML='<button id="resolveBtn">reveal result →</button>';
       $("resolveBtn").onclick=doResolve;
       return;
     }
-    const secs=Math.ceil(left/2.5);
-    $("pending").innerHTML=`<small>forecast: ${pending.region===0?"dry field":"rainline"} → <b>${pending.predictStorm?"storm":"calm"}</b> · resolves in ${secs}s (${left} slots)</small>`;
-    setTimeout(tick,2000);
+    // no fresh sample yet — wait for the crank, check again in 10s
+    $("pending").innerHTML='<small style="color:var(--ash)">waiting for weather reading… (crank posts ~every 30s)</small>';
+    setTimeout(tick,10000);
   };
   tick();
 }
@@ -326,24 +351,9 @@ async function doResolve(){
   }catch(e){
     const m=String(e.message||e);
     if(m.match(/ForecastNotReady|0x1787|not ready/i)){
-      // Crank hasn't posted a fresh weather sample yet — auto-retry with countdown
-      let retryCount=(window._resolveRetries||0)+1;
-      window._resolveRetries=retryCount;
-      if(retryCount>6){
-        // give up after ~90 seconds of retrying
-        $("pending").innerHTML='<small class="bad">weather reading not updating — try again in a minute.</small>';
-        $("pending").innerHTML+='<br><button id="resolveBtn2" style="margin-top:8px">try again →</button>';
-        $("resolveBtn2").onclick=()=>{window._resolveRetries=0;doResolve();};
-        return;
-      }
-      // wait 15 seconds then auto-retry, showing a countdown
-      let secs=15;
-      const countdown=setInterval(()=>{
-        secs--;
-        $("pending").innerHTML=`<small class="bad">waiting for weather reading… retrying in ${secs}s (attempt ${retryCount}/6)</small>`;
-        if(secs<=0){clearInterval(countdown);doResolve();}
-      },1000);
-      $("pending").innerHTML=`<small class="bad">waiting for weather reading… retrying in ${secs}s (attempt ${retryCount}/6)</small>`;
+      // Shouldn't normally happen (countdown checks the feed first), but handle gracefully
+      $("pending").innerHTML='<small style="color:var(--ash)">weather reading not ready yet — checking again in 15s…</small>';
+      setTimeout(()=>startResolveCountdown(),15000);
     }else{log("resolve failed: "+m,"bad");$("pending").innerHTML='';pending=null;$("commitBtn").disabled=false;}
   }
 }
