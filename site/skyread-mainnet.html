@@ -279,6 +279,7 @@ $("commitBtn").onclick=async()=>{
     ],data,"forecast staked");
     // +5 slot buffer: wait slightly past the window close to avoid ForecastNotReady
     pending={forecast,region,commitSlot,windowSlots,resolveSlot:commitSlot+windowSlots+5,predictStorm};
+    window._resolveRetries=0;
     startResolveCountdown();
   }catch(e){log("forecast failed: "+(e.message||e),"bad");$("commitBtn").disabled=false;}
 };
@@ -325,9 +326,24 @@ async function doResolve(){
   }catch(e){
     const m=String(e.message||e);
     if(m.match(/ForecastNotReady|0x1787|not ready/i)){
-      $("pending").innerHTML='<small class="bad">not ready yet — wait a moment, then reveal again.</small>';
-      $("pending").innerHTML+='<br><button id="resolveBtn2" style="margin-top:8px">reveal result →</button>';
-      $("resolveBtn2").onclick=doResolve;
+      // Crank hasn't posted a fresh weather sample yet — auto-retry with countdown
+      let retryCount=(window._resolveRetries||0)+1;
+      window._resolveRetries=retryCount;
+      if(retryCount>6){
+        // give up after ~90 seconds of retrying
+        $("pending").innerHTML='<small class="bad">weather reading not updating — try again in a minute.</small>';
+        $("pending").innerHTML+='<br><button id="resolveBtn2" style="margin-top:8px">try again →</button>';
+        $("resolveBtn2").onclick=()=>{window._resolveRetries=0;doResolve();};
+        return;
+      }
+      // wait 15 seconds then auto-retry, showing a countdown
+      let secs=15;
+      const countdown=setInterval(()=>{
+        secs--;
+        $("pending").innerHTML=`<small class="bad">waiting for weather reading… retrying in ${secs}s (attempt ${retryCount}/6)</small>`;
+        if(secs<=0){clearInterval(countdown);doResolve();}
+      },1000);
+      $("pending").innerHTML=`<small class="bad">waiting for weather reading… retrying in ${secs}s (attempt ${retryCount}/6)</small>`;
     }else{log("resolve failed: "+m,"bad");$("pending").innerHTML='';pending=null;$("commitBtn").disabled=false;}
   }
 }
