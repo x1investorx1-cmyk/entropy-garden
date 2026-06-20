@@ -8,7 +8,9 @@ pub mod state;
 
 use instructions::*;
 use eg::instructions::*;
+use eg::skyread::*;
 use eg::thread::*;
+use eg::pulse::*;
 use eg::carbon::*;
 use eg::bloom::*;
 use eg::airdrop::*;
@@ -77,6 +79,12 @@ pub mod entropy_garden {
         eg::metadata::initialize_token_metadata(ctx, name, symbol, uri)
     }
 
+    pub fn commit_pulse(ctx: Context<CommitPulse>, predicted_band: u8, window_slots: u64, commit_slot: u64) -> Result<()> {
+        eg::pulse::commit_pulse(ctx, predicted_band, window_slots, commit_slot)
+    }
+    pub fn resolve_pulse(ctx: Context<ResolvePulse>) -> Result<()> {
+        eg::pulse::resolve_pulse(ctx)
+    }
 
     pub fn init_carbon_sink(ctx: Context<InitCarbonSink>) -> Result<()> {
         eg::carbon::init_carbon_sink(ctx)
@@ -124,7 +132,13 @@ pub mod entropy_garden {
         eg::thread::abandon_thread(ctx)
     }
 
+    pub fn commit_forecast(ctx: Context<CommitForecast>, region_id: u16, predict_storm: bool, window_slots: u64, commit_slot: u64) -> Result<()> {
+        eg::skyread::commit_forecast(ctx, region_id, predict_storm, window_slots, commit_slot)
+    }
 
+    pub fn resolve_forecast(ctx: Context<ResolveForecast>) -> Result<()> {
+        eg::skyread::resolve_forecast(ctx)
+    }
 
     pub fn init_eg_mint(ctx: Context<InitEgMint>, fee_lamports: u64, fee_cap_lamports: u64) -> Result<()> {
         eg::instructions::init_eg_mint(ctx, fee_lamports, fee_cap_lamports)
