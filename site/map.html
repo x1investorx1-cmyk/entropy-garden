@@ -64,7 +64,7 @@ footer{margin-top:46px;padding-top:18px;border-top:1px solid var(--hairline);col
 </head>
 <body>
 <div class="nav">
-  <a href="/">← observatory</a><a href="/tree.html">the tree</a>· <a href="/rose.html" style="border:0">🌹 your plants</a> · <a href="/ariadne.html" style="border:0;color:#E0C878">🧵 ariadne's thread</a> · <a href="/carbon.html" style="border:0">🌱 carbon farming</a> · <a href="/bloom.html" style="color:#E8622A">🌸 bloom race</a><a href="/garden.html">your garden →</a>
+  <a href="/">← observatory</a> · <a href="/rose.html" style="border:0">🌹 your plants</a> · <a href="/ariadne.html" style="border:0;color:#E0C878">🧵 ariadne's thread</a> · <a href="/carbon.html" style="border:0">🌱 carbon farming</a> · <a href="/bloom.html" style="color:#E8622A">🌸 bloom race</a> · <a href="/garden.html">your garden →</a>
 </div>
 <p class="eyebrow">The living map · reads <span style="color:var(--leaf)">mainnet</span> every 20s</p>
 <h1>the <em>garden</em>, entire</h1>
@@ -174,8 +174,14 @@ async function paint(){
     const allPlantKeys=[]; const plantRef=[];
     for(const ri of [0,1]) for(const p of byRegion[ri])
       p.plants.forEach((pk,si)=>{ if(pk){allPlantKeys.push(pk); plantRef.push({p,si}); }});
-    const plantInfos = allPlantKeys.length? await conn.getMultipleAccountsInfo(allPlantKeys):[];
-    plantInfos.forEach((info,j)=>{ if(info){ const {p,si}=plantRef[j]; (p._pd=p._pd||{})[si]=decPlant(info.data);} });
+    // fetch plants in batches of 100 (RPC caps getMultipleAccounts per call)
+    let plantInfos=[];
+    for(let i=0;i<allPlantKeys.length;i+=100){
+      const chunk=allPlantKeys.slice(i,i+100);
+      const infos=await conn.getMultipleAccountsInfo(chunk);
+      plantInfos=plantInfos.concat(infos);
+    }
+    plantInfos.forEach((info,j)=>{ if(info){ try{ const {p,si}=plantRef[j]; (p._pd=p._pd||{})[si]=decPlant(info.data);}catch(e){} } });
 
     let alive=0,stress=0,dead=0;
     for(const ri of [0,1]){
